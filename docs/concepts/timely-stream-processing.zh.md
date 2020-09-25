@@ -1,8 +1,8 @@
 ---
-title: Timely Stream Processing
+title: 及时流处理
 nav-id: timely-stream-processing
 nav-pos: 3
-nav-title: Timely Stream Processing
+nav-title: 及时流处理
 nav-parent_id: concepts
 ---
 <!--
@@ -34,7 +34,7 @@ concepts/stateful-stream-processing.zh.md %}) in which time plays some role in t
 computation. Among other things, this is the case when you do time series
 analysis, when doing aggregations based on certain time periods (typically
 called windows), or when you do event processing where the time when an event
-occured is important.
+occurred is important.
 
 In the following sections we will highlight some of the topics that you should
 consider when working with timely Flink Applications.

@@ -51,7 +51,7 @@ execution:
 
 configuration:
   table.sql-dialect: hive
-  
+
 {% endhighlight %}
 
 You can also set the dialect after the SQL Client has launched.
@@ -70,6 +70,8 @@ Flink SQL> set table.sql-dialect=default; -- to use default dialect
 
 You can set dialect for your TableEnvironment with Table API.
 
+<div class="codetabs" markdown="1">
+<div data-lang="Java" markdown="1">
 {% highlight java %}
 
 EnvironmentSettings settings = EnvironmentSettings.newInstance().useBlinkPlanner()...build();
@@ -80,6 +82,22 @@ tableEnv.getConfig().setSqlDialect(SqlDialect.HIVE);
 tableEnv.getConfig().setSqlDialect(SqlDialect.DEFAULT);
 
 {% endhighlight %}
+</div>
+<div data-lang="Python" markdown="1">
+{% highlight python %}
+from pyflink.table import *
+
+settings = EnvironmentSettings.new_instance().in_batch_mode().use_blink_planner().build()
+t_env = BatchTableEnvironment.create(environment_settings=settings)
+
+# to use hive dialect
+t_env.get_config().set_sql_dialect(SqlDialect.HIVE)
+# to use default dialect
+t_env.get_config().set_sql_dialect(SqlDialect.DEFAULT)
+
+{% endhighlight %}
+</div>
+</div>
 
 ## DDL
 
@@ -87,12 +105,21 @@ This section lists the supported DDLs with the Hive dialect. We'll mainly focus 
 here. You can refer to [Hive doc](https://cwiki.apache.org/confluence/display/Hive/LanguageManual+DDL)
 for the semantics of each DDL statement.
 
+### CATALOG
+
+#### Show
+
+{% highlight sql %}
+SHOW CURRENT CATALOG;
+{% endhighlight %}
+
 ### DATABASE
 
 #### Show
 
 {% highlight sql %}
 SHOW DATABASES;
+SHOW CURRENT DATABASE;
 {% endhighlight %}
 
 #### Create
@@ -157,13 +184,13 @@ CREATE [EXTERNAL] TABLE [IF NOT EXISTS] table_name
   ]
   [LOCATION fs_path]
   [TBLPROPERTIES (property_name=property_value, ...)]
-  
+
 row_format:
   : DELIMITED [FIELDS TERMINATED BY char [ESCAPED BY char]] [COLLECTION ITEMS TERMINATED BY char]
       [MAP KEYS TERMINATED BY char] [LINES TERMINATED BY char]
       [NULL DEFINED AS char]
   | SERDE serde_name [WITH SERDEPROPERTIES (property_name=property_value, ...)]
-  
+
 file_format:
   : SEQUENCEFILE
   | TEXTFILE
@@ -172,10 +199,10 @@ file_format:
   | PARQUET
   | AVRO
   | INPUTFORMAT input_format_classname OUTPUTFORMAT output_format_classname
-  
+
 column_constraint:
   : NOT NULL [[ENABLE|DISABLE] [VALIDATE|NOVALIDATE] [RELY|NORELY]]
-  
+
 table_constraint:
   : [CONSTRAINT constraint_name] PRIMARY KEY (col_name, ...) [[ENABLE|DISABLE] [VALIDATE|NOVALIDATE] [RELY|NORELY]]
 {% endhighlight %}
@@ -216,9 +243,9 @@ present, the operation will be applied to the corresponding partition instead of
 
 {% highlight sql %}
 ALTER TABLE table_name [PARTITION partition_spec] SET SERDE serde_class_name [WITH SERDEPROPERTIES serde_properties];
- 
+
 ALTER TABLE table_name [PARTITION partition_spec] SET SERDEPROPERTIES serde_properties;
- 
+
 serde_properties:
   : (property_name = property_value, property_name = property_value, ... )
 {% endhighlight %}
@@ -271,6 +298,8 @@ CREATE VIEW [IF NOT EXISTS] view_name [(column_name, ...) ]
 {% endhighlight %}
 
 #### Alter
+
+**NOTE**: Altering view only works in Table API, but not supported via SQL client.
 
 ##### Rename
 
@@ -345,3 +374,4 @@ location is only supported in Hive-2.4.0 or later.
 - Hive and Calcite have different sets of reserved keywords. For example, `default` is a reserved keyword in Calcite and
 a non-reserved keyword in Hive. Even with Hive dialect, you have to quote such keywords with backtick ( ` ) in order to
 use them as identifiers.
+- Due to expanded query incompatibility, views created in Flink cannot be queried in Hive.

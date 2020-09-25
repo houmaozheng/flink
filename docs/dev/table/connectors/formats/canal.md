@@ -24,6 +24,7 @@ under the License.
 -->
 
 <span class="label label-info">Changelog-Data-Capture Format</span>
+<span class="label label-info">Format: Serialization Schema</span>
 <span class="label label-info">Format: Deserialization Schema</span>
 
 * This will be replaced by the TOC
@@ -37,7 +38,10 @@ Flink supports to interpret Canal JSON messages as INSERT/UPDATE/DELETE messages
  - real-time materialized views on databases
  - temporal join changing history of a database table and so on.
 
-*Note: Support for interpreting Canal protobuf messages and emitting Canal messages is on the roadmap.*
+Flink also supports to encode the INSERT/UPDATE/DELETE messages in Flink SQL as Canal JSON messages, and emit to storage like Kafka.
+However, currently Flink can't combine UPDATE_BEFORE and UPDATE_AFTER into a single UPDATE message. Therefore, Flink encodes UPDATE_BEFORE and UPDATE_AFTER as DELETE and INSERT Canal messages.
+
+*Note: Support for interpreting Canal protobuf messages is on the roadmap.*
 
 Dependencies
 ------------
@@ -180,12 +184,26 @@ Format Options
         <li>Option <code>'ISO-8601'</code>will parse input timestamp in "yyyy-MM-ddTHH:mm:ss.s{precision}" format, e.g '2020-12-30T12:13:14.123' and output timestamp in the same format.</li>
       </ul>
       </td>
-      </tr>
+    </tr>
+    <tr>
+      <td><h5>canal-json.database.include</h5></td>
+      <td>optional</td>
+      <td style="word-wrap: break-word;">(none)</td>
+      <td>String</td>
+      <td>Only read changelog rows which match the specific database (by comparing the "database" meta field in the Canal record).</td>
+    </tr>
+    <tr>
+      <td><h5>canal-json.table.include</h5></td>
+      <td>optional</td>
+      <td style="word-wrap: break-word;">(none)</td>
+      <td>String</td>
+      <td>Only read changelog rows which match the specific table (by comparing the "table" meta field in the Canal record).</td>
+    </tr>
     </tbody>
 </table>
 
 Data Type Mapping
 ----------------
 
-Currently, the Canal format uses JSON format for deserialization. Please refer to [JSON format documentation]({% link dev/table/connectors/formats/json.md %}#data-type-mapping) for more details about the data type mapping.
+Currently, the Canal format uses JSON format for serialization and deserialization. Please refer to [JSON format documentation]({% link dev/table/connectors/formats/json.md %}#data-type-mapping) for more details about the data type mapping.
 

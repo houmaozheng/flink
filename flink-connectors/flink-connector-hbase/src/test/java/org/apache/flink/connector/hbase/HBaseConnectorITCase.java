@@ -25,31 +25,31 @@ import org.apache.flink.api.java.DataSet;
 import org.apache.flink.api.java.ExecutionEnvironment;
 import org.apache.flink.api.java.tuple.Tuple1;
 import org.apache.flink.api.java.typeutils.RowTypeInfo;
+import org.apache.flink.connector.hbase.source.AbstractTableInputFormat;
 import org.apache.flink.connector.hbase.source.HBaseInputFormat;
+import org.apache.flink.connector.hbase.source.HBaseRowDataInputFormat;
+import org.apache.flink.connector.hbase.source.HBaseRowInputFormat;
 import org.apache.flink.connector.hbase.source.HBaseTableSource;
+import org.apache.flink.connector.hbase.util.HBaseTableSchema;
 import org.apache.flink.connector.hbase.util.HBaseTestBase;
 import org.apache.flink.connector.hbase.util.PlannerType;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
+import org.apache.flink.table.api.DataTypes;
 import org.apache.flink.table.api.Table;
 import org.apache.flink.table.api.TableConfig;
 import org.apache.flink.table.api.TableEnvironment;
-import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.api.bridge.java.BatchTableEnvironment;
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 import org.apache.flink.table.api.internal.TableEnvironmentInternal;
-import org.apache.flink.table.api.internal.TableImpl;
+import org.apache.flink.table.descriptors.HBase;
+import org.apache.flink.table.descriptors.Schema;
 import org.apache.flink.table.functions.ScalarFunction;
-import org.apache.flink.table.planner.runtime.utils.BatchTableEnvUtil;
-import org.apache.flink.table.planner.runtime.utils.TableEnvUtil;
-import org.apache.flink.table.planner.sinks.CollectRowTableSink;
-import org.apache.flink.table.planner.sinks.CollectTableSink;
-import org.apache.flink.table.planner.utils.JavaScalaConversionUtil;
 import org.apache.flink.test.util.TestBaseUtils;
 import org.apache.flink.types.Row;
+import org.apache.flink.util.CollectionUtil;
 
-import org.apache.flink.shaded.guava18.com.google.common.collect.Lists;
-
+import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.util.Bytes;
@@ -57,16 +57,17 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import scala.Option;
-
 import static org.apache.flink.connector.hbase.util.PlannerType.OLD_PLANNER;
 import static org.apache.flink.table.api.Expressions.$;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 
 /**
  * IT cases for HBase connector (including HBaseTableSource and HBaseTableSink).
@@ -99,7 +100,7 @@ public class HBaseConnectorITCase extends HBaseTestBase {
 	// -------------------------------------------------------------------------------------
 
 	@Test
-	public void testTableSourceFullScan() throws Exception {
+	public void testTableSourceFullScan() {
 		TableEnvironment tEnv = createBatchTableEnv();
 		if (isLegacyConnector) {
 			HBaseTableSource hbaseTable = new HBaseTableSource(getConf(), TEST_TABLE_1);
@@ -135,7 +136,7 @@ public class HBaseConnectorITCase extends HBaseTestBase {
 			"  h.family3.col3 " +
 			"FROM hTable AS h");
 
-		List<Row> results = collectBatchResult(table);
+		List<Row> results = CollectionUtil.iteratorToList(table.execute().collect());
 		String expected =
 			"10,Hello-1,100,1.01,false,Welt-1\n" +
 				"20,Hello-2,200,2.02,true,Welt-2\n" +
@@ -150,7 +151,7 @@ public class HBaseConnectorITCase extends HBaseTestBase {
 	}
 
 	@Test
-	public void testTableSourceProjection() throws Exception {
+	public void testTableSourceProjection() {
 		TableEnvironment tEnv = createBatchTableEnv();
 
 		if (isLegacyConnector) {
@@ -185,7 +186,7 @@ public class HBaseConnectorITCase extends HBaseTestBase {
 			"  h.family3.col3 " +
 			"FROM hTable AS h");
 
-		List<Row> results = collectBatchResult(table);
+		List<Row> results = CollectionUtil.iteratorToList(table.execute().collect());
 		String expected =
 			"10,1.01,false,Welt-1\n" +
 				"20,2.02,true,Welt-2\n" +
@@ -200,7 +201,7 @@ public class HBaseConnectorITCase extends HBaseTestBase {
 	}
 
 	@Test
-	public void testTableSourceFieldOrder() throws Exception {
+	public void testTableSourceFieldOrder() {
 		TableEnvironment tEnv = createBatchTableEnv();
 
 		if (isLegacyConnector) {
@@ -230,7 +231,36 @@ public class HBaseConnectorITCase extends HBaseTestBase {
 
 		Table table = tEnv.sqlQuery("SELECT * FROM hTable AS h");
 
-		List<Row> results = collectBatchResult(table);
+		List<Row> results = CollectionUtil.iteratorToList(table.execute().collect());
+		String expected =
+			"1,Hello-1,100,1.01,false,Welt-1,10\n" +
+				"2,Hello-2,200,2.02,true,Welt-2,20\n" +
+				"3,Hello-3,300,3.03,false,Welt-3,30\n" +
+				"4,null,400,4.04,true,Welt-4,40\n" +
+				"5,Hello-5,500,5.05,false,Welt-5,50\n" +
+				"6,Hello-6,600,6.06,true,Welt-6,60\n" +
+				"7,Hello-7,700,7.07,false,Welt-7,70\n" +
+				"8,null,800,8.08,true,Welt-8,80\n";
+
+		TestBaseUtils.compareResultAsText(results, expected);
+	}
+
+	@Test
+	public void testTableSourceWithTableAPI() throws Exception {
+		StreamExecutionEnvironment execEnv = StreamExecutionEnvironment.getExecutionEnvironment();
+		StreamTableEnvironment tEnv = StreamTableEnvironment.create(execEnv, streamSettings);
+		tEnv.connect(new HBase()
+			.version("1.4.3")
+			.tableName(TEST_TABLE_1)
+			.zookeeperQuorum(getZookeeperQuorum()))
+			.withSchema(new Schema()
+				.field("rowkey", DataTypes.INT())
+				.field("family2", DataTypes.ROW(DataTypes.FIELD("col1", DataTypes.STRING()), DataTypes.FIELD("col2", DataTypes.BIGINT())))
+				.field("family3", DataTypes.ROW(DataTypes.FIELD("col1", DataTypes.DOUBLE()), DataTypes.FIELD("col2", DataTypes.BOOLEAN()), DataTypes.FIELD("col3", DataTypes.STRING())))
+				.field("family1", DataTypes.ROW(DataTypes.FIELD("col1", DataTypes.INT()))))
+			.createTemporaryTable("hTable");
+		Table table = tEnv.sqlQuery("SELECT * FROM hTable AS h");
+		List<Row> results = CollectionUtil.iteratorToList(table.execute().collect());
 		String expected =
 			"1,Hello-1,100,1.01,false,Welt-1,10\n" +
 				"2,Hello-2,200,2.02,true,Welt-2,20\n" +
@@ -276,7 +306,7 @@ public class HBaseConnectorITCase extends HBaseTestBase {
 				"FROM hTable AS h"
 		);
 
-		List<Row> results = collectBatchResult(table);
+		List<Row> results = CollectionUtil.iteratorToList(table.execute().collect());
 		String expected =
 			"Hello-1,100\n" +
 				"Hello-2,200\n" +
@@ -323,8 +353,7 @@ public class HBaseConnectorITCase extends HBaseTestBase {
 			" family3" +
 			" FROM " + TEST_TABLE_1;
 
-		// wait to finish
-		TableEnvUtil.execInsertSqlAndWaitResult(tEnv, query);
+		tEnv.executeSql(query).await();
 
 		// start a batch scan job to verify contents in HBase table
 		TableEnvironment batchEnv = createBatchTableEnv();
@@ -341,7 +370,7 @@ public class HBaseConnectorITCase extends HBaseTestBase {
 				"  h.family3.col3 " +
 				"FROM " + TEST_TABLE_2 + " AS h"
 		);
-		List<Row> results = collectBatchResult(table);
+		List<Row> results = CollectionUtil.iteratorToList(table.execute().collect());
 		String expected =
 				"1,10,Hello-1,100,1.01,false,Welt-1\n" +
 				"2,20,Hello-2,200,2.02,true,Welt-2\n" +
@@ -381,8 +410,7 @@ public class HBaseConnectorITCase extends HBaseTestBase {
 			" family3," +
 			" family4" +
 			" from " + TEST_TABLE_1;
-		// wait to finish
-		TableEnvUtil.execInsertSqlAndWaitResult(tEnv, insertStatement);
+		tEnv.executeSql(insertStatement).await();
 
 		// start a batch scan job to verify contents in HBase table
 		TableEnvironment batchEnv = createBatchTableEnv();
@@ -401,7 +429,7 @@ public class HBaseConnectorITCase extends HBaseTestBase {
 				"  h.family4.col4 " +
 				" FROM " + TEST_TABLE_3 + " AS h";
 		Iterator<Row> collected = tEnv.executeSql(query).collect();
-		List<String> result = Lists.newArrayList(collected).stream()
+		List<String> result = CollectionUtil.iteratorToList(collected).stream()
 			.map(Row::toString)
 			.sorted()
 			.collect(Collectors.toList());
@@ -419,7 +447,7 @@ public class HBaseConnectorITCase extends HBaseTestBase {
 	}
 
 	@Test
-	public void testHBaseLookupTableSource() throws Exception {
+	public void testHBaseLookupTableSource() {
 		if (OLD_PLANNER.equals(planner) || isLegacyConnector) {
 			// lookup table source is only supported in blink planner, skip for old planner
 			// types TIMESTAMP/DATE/TIME/DECIMAL works well in new connector, skip legacy connector
@@ -465,7 +493,7 @@ public class HBaseConnectorITCase extends HBaseTestBase {
 			" h.family4.col4 " +
 			" FROM src JOIN " + TEST_TABLE_1 + " FOR SYSTEM_TIME AS OF src.proc as h ON src.a = h.rowkey";
 		Iterator<Row> collected = tEnv.executeSql(dimJoinQuery).collect();
-		List<String> result = Lists.newArrayList(collected).stream()
+		List<String> result = CollectionUtil.iteratorToList(collected).stream()
 			.map(Row::toString)
 			.sorted()
 			.collect(Collectors.toList());
@@ -477,6 +505,24 @@ public class HBaseConnectorITCase extends HBaseTestBase {
 		expected.add("3,3,30,Hello-3,300,3.03,false,Welt-3,2019-08-18T19:02,2019-08-18,19:02,12345678.0003");
 
 		assertEquals(expected, result);
+	}
+
+	@Test
+	public void testTableInputFormatOpenClose() throws IOException {
+		HBaseTableSchema tableSchema = new HBaseTableSchema();
+		tableSchema.addColumn(FAMILY1, F1COL1, byte[].class);
+		AbstractTableInputFormat<?> inputFormat;
+		if (isLegacyConnector) {
+			inputFormat = new HBaseRowInputFormat(getConf(), TEST_TABLE_1, tableSchema);
+		} else {
+			inputFormat = new HBaseRowDataInputFormat(getConf(), TEST_TABLE_1, tableSchema, "null");
+		}
+		inputFormat.open(inputFormat.createInputSplits(1)[0]);
+		assertNotNull(inputFormat.getConnection());
+		assertNotNull(inputFormat.getConnection().getTable(TableName.valueOf(TEST_TABLE_1)));
+
+		inputFormat.close();
+		assertNull(inputFormat.getConnection());
 	}
 
 	// -------------------------------------------------------------------------------------
@@ -507,40 +553,6 @@ public class HBaseConnectorITCase extends HBaseTestBase {
 			return BatchTableEnvironment.create(env, new TableConfig());
 		} else {
 			return TableEnvironment.create(batchSettings);
-		}
-	}
-
-	/**
-	 * Collects batch result depends on the {@link #planner} context.
-	 */
-	private List<Row> collectBatchResult(Table table) throws Exception {
-		TableImpl tableImpl = (TableImpl) table;
-		if (OLD_PLANNER.equals(planner)) {
-			BatchTableEnvironment batchTableEnv = (BatchTableEnvironment) tableImpl.getTableEnvironment();
-			DataSet<Row> resultSet = batchTableEnv.toDataSet(table, Row.class);
-			return resultSet.collect();
-		} else {
-			TableImpl t = (TableImpl) table;
-			TableSchema schema = t.getSchema();
-			List<TypeInformation> types = new ArrayList<>();
-			for (TypeInformation typeInfo : t.getSchema().getFieldTypes()) {
-				// convert LOCAL_DATE_TIME to legacy TIMESTAMP to make the output consistent with flink batch planner
-				if (typeInfo.equals(Types.LOCAL_DATE_TIME)) {
-					types.add(Types.SQL_TIMESTAMP);
-				} else if (typeInfo.equals(Types.LOCAL_DATE)) {
-					types.add(Types.SQL_DATE);
-				} else if (typeInfo.equals(Types.LOCAL_TIME)) {
-					types.add(Types.SQL_TIME);
-				} else {
-					types.add(typeInfo);
-				}
-			}
-			CollectRowTableSink sink = new CollectRowTableSink();
-			CollectTableSink<Row> configuredSink = (CollectTableSink<Row>) sink.configure(
-				schema.getFieldNames(), types.toArray(new TypeInformation[0]));
-			return JavaScalaConversionUtil.toJava(
-				BatchTableEnvUtil.collect(
-					t.getTableEnvironment(), table, configuredSink, Option.apply("JOB")));
 		}
 	}
 

@@ -25,13 +25,31 @@ under the License.
 * This will be replaced by the TOC
 {:toc}
 
-SELECT queries are specified with the `sqlQuery()` method of the `TableEnvironment`. The method returns the result of the SELECT query as a `Table`. A `Table` can be used in [subsequent SQL and Table API queries]({{ site.baseurl }}/dev/table/common.html#mixing-table-api-and-sql), be [converted into a DataSet or DataStream]({{ site.baseurl }}/dev/table/common.html#integration-with-datastream-and-dataset-api), or [written to a TableSink]({{ site.baseurl }}/dev/table/common.html#emit-a-table). SQL and Table API queries can be seamlessly mixed and are holistically optimized and translated into a single program.
+<div class="codetabs" data-hide-tabs="1" markdown="1">
+<div data-lang="java/scala" markdown="1">
+
+SELECT statements and VALUES statements are specified with the `sqlQuery()` method of the `TableEnvironment`. The method returns the result of the SELECT statement (or the VALUES statements) as a `Table`. A `Table` can be used in [subsequent SQL and Table API queries]({{ site.baseurl }}/dev/table/common.html#mixing-table-api-and-sql), be [converted into a DataSet or DataStream]({{ site.baseurl }}/dev/table/common.html#integration-with-datastream-and-dataset-api), or [written to a TableSink]({{ site.baseurl }}/dev/table/common.html#emit-a-table). SQL and Table API queries can be seamlessly mixed and are holistically optimized and translated into a single program.
 
 In order to access a table in a SQL query, it must be [registered in the TableEnvironment]({{ site.baseurl }}/dev/table/common.html#register-tables-in-the-catalog). A table can be registered from a [TableSource]({{ site.baseurl }}/dev/table/common.html#register-a-tablesource), [Table]({{ site.baseurl }}/dev/table/common.html#register-a-table), [CREATE TABLE statement](#create-table), [DataStream, or DataSet]({{ site.baseurl }}/dev/table/common.html#register-a-datastream-or-dataset-as-table). Alternatively, users can also [register catalogs in a TableEnvironment]({{ site.baseurl }}/dev/table/catalogs.html) to specify the location of the data sources.
 
 For convenience, `Table.toString()` automatically registers the table under a unique name in its `TableEnvironment` and returns the name. So, `Table` objects can be directly inlined into SQL queries as shown in the examples below.
 
 **Note:** Queries that include unsupported SQL features cause a `TableException`. The supported features of SQL on batch and streaming tables are listed in the following sections.
+
+</div>
+
+<div data-lang="python" markdown="1">
+
+SELECT statements and VALUES statements are specified with the `sql_query()` method of the `TableEnvironment`. The method returns the result of the SELECT statement (or the VALUES statements) as a `Table`. A `Table` can be used in [subsequent SQL and Table API queries]({{ site.baseurl }}/dev/table/common.html#mixing-table-api-and-sql) or [written to a TableSink]({{ site.baseurl }}/dev/table/common.html#emit-a-table). SQL and Table API queries can be seamlessly mixed and are holistically optimized and translated into a single program.
+
+In order to access a table in a SQL query, it must be [registered in the TableEnvironment]({{ site.baseurl }}/dev/table/common.html#register-tables-in-the-catalog). A table can be registered from a [TableSource]({{ site.baseurl }}/dev/table/common.html#register-a-tablesource), [Table]({{ site.baseurl }}/dev/table/common.html#register-a-table), [CREATE TABLE statement](#create-table). Alternatively, users can also [register catalogs in a TableEnvironment]({{ site.baseurl }}/dev/table/catalogs.html) to specify the location of the data sources.
+
+For convenience, `str(Table)` automatically registers the table under a unique name in its `TableEnvironment` and returns the name. So, `Table` objects can be directly inlined into SQL queries as shown in the examples below.
+
+**Note:** Queries that include unsupported SQL features cause a `TableException`. The supported features of SQL on batch and streaming tables are listed in the following sections.
+
+</div>
+</div>
 
 ## Specifying a Query
 
@@ -58,19 +76,18 @@ tableEnv.createTemporaryView("Orders", ds, $("user"), $("product"), $("amount"))
 Table result2 = tableEnv.sqlQuery(
   "SELECT product, amount FROM Orders WHERE product LIKE '%Rubber%'");
 
-// SQL update with a registered table
 // create and register a TableSink
 final Schema schema = new Schema()
     .field("product", DataTypes.STRING())
     .field("amount", DataTypes.INT());
 
-tableEnv.connect(new FileSystem("/path/to/file"))
+tableEnv.connect(new FileSystem().path("/path/to/file"))
     .withFormat(...)
     .withSchema(schema)
     .createTemporaryTable("RubberOrders");
 
-// run a SQL update query on the Table and emit the result to the TableSink
-tableEnv.sqlUpdate(
+// run an INSERT SQL on the Table and emit the result to the TableSink
+tableEnv.executeSql(
   "INSERT INTO RubberOrders SELECT product, amount FROM Orders WHERE product LIKE '%Rubber%'");
 {% endhighlight %}
 </div>
@@ -95,19 +112,18 @@ tableEnv.createTemporaryView("Orders", ds, $"user", $"product", $"amount")
 val result2 = tableEnv.sqlQuery(
   "SELECT product, amount FROM Orders WHERE product LIKE '%Rubber%'")
 
-// SQL update with a registered table
 // create and register a TableSink
 val schema = new Schema()
     .field("product", DataTypes.STRING())
     .field("amount", DataTypes.INT())
 
-tableEnv.connect(new FileSystem("/path/to/file"))
+tableEnv.connect(new FileSystem().path("/path/to/file"))
     .withFormat(...)
     .withSchema(schema)
     .createTemporaryTable("RubberOrders")
 
-// run a SQL update query on the Table and emit the result to the TableSink
-tableEnv.sqlUpdate(
+// run an INSERT SQL on the Table and emit the result to the TableSink
+tableEnv.executeSql(
   "INSERT INTO RubberOrders SELECT product, amount FROM Orders WHERE product LIKE '%Rubber%'")
 {% endhighlight %}
 </div>
@@ -123,7 +139,6 @@ table = table_env.from_elements(..., ['user', 'product', 'amount'])
 result = table_env \
     .sql_query("SELECT SUM(amount) FROM %s WHERE product LIKE '%%Rubber%%'" % table)
 
-# SQL update with a registered table
 # create and register a TableSink
 t_env.connect(FileSystem().path("/path/to/file")))
     .with_format(Csv()
@@ -134,16 +149,120 @@ t_env.connect(FileSystem().path("/path/to/file")))
                  .field("amount", DataTypes.BIGINT()))
     .create_temporary_table("RubberOrders")
 
-# run a SQL update query on the Table and emit the result to the TableSink
+# run an INSERT SQL on the Table and emit the result to the TableSink
 table_env \
-    .sql_update("INSERT INTO RubberOrders SELECT product, amount FROM Orders WHERE product LIKE '%Rubber%'")
+    .execute_sql("INSERT INTO RubberOrders SELECT product, amount FROM Orders WHERE product LIKE '%Rubber%'")
 {% endhighlight %}
 </div>
 </div>
 
 {% top %}
 
-## Supported Syntax
+## Execute a Query
+<div class="codetabs" data-hide-tabs="1" markdown="1">
+<div data-lang="java/scala" markdown="1">
+
+A SELECT statement or a VALUES statement can be executed to collect the content to local through the `TableEnvironment.executeSql()` method. The method returns the result of the SELECT statement (or the VALUES statement) as a `TableResult`. Similar to a SELECT statement, a `Table` object can be executed using the `Table.execute()` method to collect the content of the query to the local client.
+`TableResult.collect()` method returns a closeable row iterator. The select job will not be finished unless all result data has been collected. We should actively close the job to avoid resource leak through the `CloseableIterator#close()` method. 
+We can also print the select result to client console through the `TableResult.print()` method. The result data in `TableResult` can be accessed only once. Thus, `collect()` and `print()` must not be called after each other.
+
+`TableResult.collect()` and `TableResult.print()` have slightly different behaviors under different checkpointing settings (to enable checkpointing for a streaming job, see <a href="{{ site.baseurl }}/ops/config.html#checkpointing">checkpointing config</a>).
+* For batch jobs or streaming jobs without checkpointing, `TableResult.collect()` and `TableResult.print()` have neither exactly-once nor at-least-once guarantee. Query results are immediately accessible by the clients once they're produced, but exceptions will be thrown when the job fails and restarts.
+* For streaming jobs with exactly-once checkpointing, `TableResult.collect()` and `TableResult.print()` guarantee an end-to-end exactly-once record delivery. A result will be accessible by clients only after its corresponding checkpoint completes.
+* For streaming jobs with at-least-once checkpointing, `TableResult.collect()` and `TableResult.print()` guarantee an end-to-end at-least-once record delivery. Query results are immediately accessible by the clients once they're produced, but it is possible for the same result to be delivered multiple times.
+</div>
+
+<div data-lang="python" markdown="1">
+
+A SELECT statement or a VALUES statement can be executed to collect the content to local through the `TableEnvironment.execute_sql()` method. The method returns the result of the SELECT statement (or the VALUES statement) as a `TableResult`. Similar to a SELECT statement, a `Table` object can be executed using the `Table.execute()` method to collect the content of the query to the local client.
+`TableResult.collect()` method returns a closeable row iterator. The select job will not be finished unless all result data has been collected. We should actively close the job to avoid resource leak through the `CloseableIterator#close()` method. 
+We can also print the select result to client console through the `TableResult.print()` method. The result data in `TableResult` can be accessed only once. Thus, `collect()` and `print()` must not be called after each other.
+
+`TableResult.collect()` and `TableResult.print()` have slightly different behaviors under different checkpointing settings (to enable checkpointing for a streaming job, see <a href="{{ site.baseurl }}/ops/config.html#checkpointing">checkpointing config</a>).
+* For batch jobs or streaming jobs without checkpointing, `TableResult.collect()` and `TableResult.print()` have neither exactly-once nor at-least-once guarantee. Query results are immediately accessible by the clients once they're produced, but exceptions will be thrown when the job fails and restarts.
+* For streaming jobs with exactly-once checkpointing, `TableResult.collect()` and `TableResult.print()` guarantee an end-to-end exactly-once record delivery. A result will be accessible by clients only after its corresponding checkpoint completes.
+* For streaming jobs with at-least-once checkpointing, `TableResult.collect()` and `TableResult.print()` guarantee an end-to-end at-least-once record delivery. Query results are immediately accessible by the clients once they're produced, but it is possible for the same result to be delivered multiple times.
+
+</div>
+</div>
+
+<div class="codetabs" markdown="1">
+<div data-lang="java" markdown="1">
+{% highlight java %}
+StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+StreamTableEnvironment tableEnv = StreamTableEnvironment.create(env, settings);
+
+tableEnv.executeSql("CREATE TABLE Orders (`user` BIGINT, product STRING, amount INT) WITH (...)");
+
+// execute SELECT statement
+TableResult tableResult1 = tableEnv.executeSql("SELECT * FROM Orders");
+// use try-with-resources statement to make sure the iterator will be closed automatically
+try (CloseableIterator<Row> it = tableResult1.collect()) {
+    while(it.hasNext()) {
+        Row row = it.next();
+        // handle row
+    }
+}
+
+// execute Table
+TableResult tableResult2 = tableEnv.sqlQuery("SELECT * FROM Orders").execute();
+tableResult2.print();
+
+{% endhighlight %}
+</div>
+<div data-lang="scala" markdown="1">
+{% highlight scala %}
+val env = StreamExecutionEnvironment.getExecutionEnvironment()
+val tableEnv = StreamTableEnvironment.create(env, settings)
+// enable checkpointing
+tableEnv.getConfig.getConfiguration.set(
+  ExecutionCheckpointingOptions.CHECKPOINTING_MODE, CheckpointingMode.EXACTLY_ONCE)
+tableEnv.getConfig.getConfiguration.set(
+  ExecutionCheckpointingOptions.CHECKPOINTING_INTERVAL, Duration.ofSeconds(10))
+
+tableEnv.executeSql("CREATE TABLE Orders (`user` BIGINT, product STRING, amount INT) WITH (...)")
+
+// execute SELECT statement
+val tableResult1 = tableEnv.executeSql("SELECT * FROM Orders")
+val it = tableResult1.collect()
+try while (it.hasNext) {
+  val row = it.next
+  // handle row
+}
+finally it.close() // close the iterator to avoid resource leak
+
+// execute Table
+val tableResult2 = tableEnv.sqlQuery("SELECT * FROM Orders").execute()
+tableResult2.print()
+
+{% endhighlight %}
+</div>
+<div data-lang="python" markdown="1">
+{% highlight python %}
+env = StreamExecutionEnvironment.get_execution_environment()
+table_env = StreamTableEnvironment.create(env, settings)
+# enable checkpointing
+table_env.get_config().get_configuration().set_string("execution.checkpointing.mode", "EXACTLY_ONCE")
+table_env.get_config().get_configuration().set_string("execution.checkpointing.interval", "10s")
+
+table_env.execute_sql("CREATE TABLE Orders (`user` BIGINT, product STRING, amount INT) WITH (...)")
+
+# execute SELECT statement
+table_result1 = table_env.execute_sql("SELECT * FROM Orders")
+table_result1.print()
+
+# execute Table
+table_result2 = table_env.sql_query("SELECT * FROM Orders").execute()
+table_result2.print()
+
+{% endhighlight %}
+</div>
+</div>
+
+{% top %}
+
+
+## Syntax
 
 Flink parses SQL using [Apache Calcite](https://calcite.apache.org/docs/reference.html), which supports standard ANSI SQL.
 
@@ -293,77 +412,6 @@ String literals must be enclosed in single quotes (e.g., `SELECT 'Hello World'`)
 {% top %}
 
 ## Operations
-
-### Show, Describe, and Use
-
-<div markdown="1">
-<table class="table table-bordered">
-  <thead>
-    <tr>
-      <th class="text-left" style="width: 20%">Operation</th>
-      <th class="text-center">Description</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>
-        <strong>Show</strong><br>
-        <span class="label label-primary">Batch</span> <span class="label label-primary">Streaming</span>
-      </td>
-      <td>
-        <p>Show all catalogs</p>
-{% highlight sql %}
-SHOW CATALOGS;
-{% endhighlight %}
-		<p>Show all databases in the current catalog</p>
-{% highlight sql %}
-SHOW DATABASES;
-{% endhighlight %}
-		<p>Show all tables in the current database in the current catalog</p>
-{% highlight sql %}
-SHOW TABLES;
-{% endhighlight %}
-        <p>Show all views in the current database in the current catalog</p>
-{% highlight sql %}
-SHOW VIEWS;
-{% endhighlight %}
-      </td>
-    </tr>
-    <tr>
-      <td>
-        <strong>Describe</strong><br>
-        <span class="label label-primary">Batch</span> <span class="label label-primary">Streaming</span>
-      </td>
-      <td>
-			<p>Describe the schema of the given table.</p>
-{% highlight sql %}
-DESCRIBE myTable;
-{% endhighlight %}
-            <p>Describe the schema of the given view.</p>
-{% highlight sql %}
-DESCRIBE myView;
-{% endhighlight %}
-      </td>
-    </tr>    
-    <tr>
-      <td>
-        <strong>Use</strong><br>
-        <span class="label label-primary">Batch</span> <span class="label label-primary">Streaming</span>
-      </td>
-      <td>
-			<p>Set current catalog for the session </p>
-{% highlight sql %}
-USE CATALOG mycatalog;
-{% endhighlight %}
-            <p>Set current database of the current catalog for the session</p>
-{% highlight sql %}
-USE mydatabase;
-{% endhighlight %}
-      </td>
-    </tr>
-  </tbody>
-</table>
-</div>
 
 ### Scan, Projection, and Filter
 
@@ -647,14 +695,20 @@ FROM Orders CROSS JOIN UNNEST(tags) AS t (tag)
         <p>A row of the left (outer) table is dropped, if its table function call returns an empty result.</p>
 {% highlight sql %}
 SELECT users, tag
-FROM Orders, LATERAL TABLE(unnest_udtf(tags)) t AS tag
+FROM Orders, LATERAL TABLE(unnest_udtf(tags)) AS t(tag)
+-- from 1.11, we can also do it like below:
+SELECT users, tag
+FROM Orders, LATERAL TABLE(unnest_udtf(tags))
 {% endhighlight %}
 
         <p><b>Left Outer Join</b></p>
         <p>If a table function call returns an empty result, the corresponding outer row is preserved and the result padded with null values.</p>
 {% highlight sql %}
 SELECT users, tag
-FROM Orders LEFT JOIN LATERAL TABLE(unnest_udtf(tags)) t AS tag ON TRUE
+FROM Orders LEFT JOIN LATERAL TABLE(unnest_udtf(tags)) AS t(tag) ON TRUE
+-- from 1.11, we can also do it like below:
+SELECT users, tag
+FROM Orders LEFT JOIN LATERAL TABLE(unnest_udtf(tags)) ON TRUE
 {% endhighlight %}
 
         <p><b>Note:</b> Currently, only literal <code>TRUE</code> is supported as predicate for a left outer join against a lateral table.</p>

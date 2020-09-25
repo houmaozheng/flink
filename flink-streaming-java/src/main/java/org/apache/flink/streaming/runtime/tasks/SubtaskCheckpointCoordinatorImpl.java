@@ -31,9 +31,6 @@ import org.apache.flink.runtime.checkpoint.channel.ChannelStateWriterImpl;
 import org.apache.flink.runtime.execution.Environment;
 import org.apache.flink.runtime.io.network.api.CancelCheckpointMarker;
 import org.apache.flink.runtime.io.network.api.CheckpointBarrier;
-import org.apache.flink.runtime.io.network.api.writer.ResultPartitionWriter;
-import org.apache.flink.runtime.io.network.buffer.Buffer;
-import org.apache.flink.runtime.io.network.partition.ResultSubpartition;
 import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.state.CheckpointStorageLocationReference;
 import org.apache.flink.runtime.state.CheckpointStorageWorkerView;
@@ -68,7 +65,9 @@ import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
+import static org.apache.flink.util.IOUtils.closeQuietly;
 import static org.apache.flink.util.Preconditions.checkNotNull;
+import static org.apache.flink.util.Preconditions.checkState;
 
 class SubtaskCheckpointCoordinatorImpl implements SubtaskCheckpointCoordinator {
 
@@ -255,7 +254,8 @@ class SubtaskCheckpointCoordinatorImpl implements SubtaskCheckpointCoordinator {
 
 		// Step (3): Prepare to spill the in-flight buffers for input and output
 		if (options.isUnalignedCheckpoint()) {
-			prepareInflightDataSnapshot(metadata.getCheckpointId());
+			// output data already written while broadcasting event
+			channelStateWriter.finishOutput(metadata.getCheckpointId());
 		}
 
 		// Step (4): Take the state snapshot. This should be largely asynchronous, to not impact progress of the
@@ -323,9 +323,11 @@ class SubtaskCheckpointCoordinatorImpl implements SubtaskCheckpointCoordinator {
 	}
 
 	@Override
-	public void initCheckpoint(long id, CheckpointOptions checkpointOptions) {
+	public void initCheckpoint(long id, CheckpointOptions checkpointOptions) throws IOException {
 		if (checkpointOptions.isUnalignedCheckpoint()) {
 			channelStateWriter.start(id, checkpointOptions);
+
+			prepareInflightDataSnapshot(id);
 		}
 	}
 
@@ -360,22 +362,21 @@ class SubtaskCheckpointCoordinatorImpl implements SubtaskCheckpointCoordinator {
 	}
 
 	private void registerAsyncCheckpointRunnable(long checkpointId, AsyncCheckpointRunnable asyncCheckpointRunnable) throws IOException {
-		StringBuilder exceptionMessage = new StringBuilder("Cannot register Closeable, ");
 		synchronized (lock) {
-			if (!closed) {
-				if (!checkpoints.containsKey(checkpointId)) {
-					checkpoints.put(checkpointId, asyncCheckpointRunnable);
-					return;
-				} else {
-					exceptionMessage.append("async checkpoint ").append(checkpointId).append(" runnable has been register. ");
-				}
+			if (closed) {
+				LOG.debug("Cannot register Closeable, this subtaskCheckpointCoordinator is already closed. Closing argument.");
+				closeQuietly(asyncCheckpointRunnable);
+				checkState(
+					!checkpoints.containsKey(checkpointId),
+					"SubtaskCheckpointCoordinator was closed without releasing asyncCheckpointRunnable for checkpoint %s",
+					checkpointId);
+			} else if (checkpoints.containsKey(checkpointId)) {
+				closeQuietly(asyncCheckpointRunnable);
+				throw new IOException(String.format("Cannot register Closeable, async checkpoint %d runnable has been register. Closing argument.", checkpointId));
 			} else {
-				exceptionMessage.append("this subtaskCheckpointCoordinator is already closed. ");
+				checkpoints.put(checkpointId, asyncCheckpointRunnable);
 			}
 		}
-
-		IOUtils.closeQuietly(asyncCheckpointRunnable);
-		throw new IOException(exceptionMessage.append("Closing argument.").toString());
 	}
 
 	private boolean unregisterAsyncCheckpointRunnable(long checkpointId) {
@@ -393,7 +394,7 @@ class SubtaskCheckpointCoordinatorImpl implements SubtaskCheckpointCoordinator {
 		synchronized (lock) {
 			asyncCheckpointRunnable = checkpoints.remove(checkpointId);
 		}
-		IOUtils.closeQuietly(asyncCheckpointRunnable);
+		closeQuietly(asyncCheckpointRunnable);
 		return asyncCheckpointRunnable != null;
 	}
 
@@ -424,18 +425,6 @@ class SubtaskCheckpointCoordinatorImpl implements SubtaskCheckpointCoordinator {
 	}
 
 	private void prepareInflightDataSnapshot(long checkpointId) throws IOException {
-		ResultPartitionWriter[] writers = env.getAllWriters();
-		for (ResultPartitionWriter writer : writers) {
-			for (int i = 0; i < writer.getNumberOfSubpartitions(); i++) {
-				ResultSubpartition subpartition = writer.getSubpartition(i);
-				channelStateWriter.addOutputData(
-					checkpointId,
-					subpartition.getSubpartitionInfo(),
-					ChannelStateWriter.SEQUENCE_NUMBER_UNKNOWN,
-					subpartition.requestInflightBufferSnapshot().toArray(new Buffer[0]));
-			}
-		}
-		channelStateWriter.finishOutput(checkpointId);
 		prepareInputSnapshot.apply(channelStateWriter, checkpointId)
 			.whenComplete((unused, ex) -> {
 				if (ex != null) {
@@ -543,7 +532,7 @@ class SubtaskCheckpointCoordinatorImpl implements SubtaskCheckpointCoordinator {
 			checkpointOptions,
 			storage,
 			isCanceled);
-		if (op == operatorChain.getHeadOperator()) {
+		if (op == operatorChain.getMainOperator()) {
 			snapshotInProgress.setInputChannelStateFuture(
 				channelStateWriteResult
 					.getInputChannelStateHandles()

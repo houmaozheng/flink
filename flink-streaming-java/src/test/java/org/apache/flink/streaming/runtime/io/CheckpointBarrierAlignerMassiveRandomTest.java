@@ -24,12 +24,12 @@ import org.apache.flink.runtime.event.TaskEvent;
 import org.apache.flink.runtime.io.network.api.CheckpointBarrier;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferPool;
-import org.apache.flink.runtime.io.network.buffer.BufferReceivedListener;
 import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
 import org.apache.flink.runtime.io.network.partition.consumer.BufferOrEvent;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
 import org.apache.flink.runtime.io.network.partition.consumer.InputGate;
 import org.apache.flink.runtime.operators.testutils.DummyCheckpointInvokable;
+import org.apache.flink.streaming.api.operators.SyncMailboxExecutor;
 
 import org.junit.Test;
 
@@ -57,8 +57,8 @@ public class CheckpointBarrierAlignerMassiveRandomTest {
 		NetworkBufferPool networkBufferPool1 = null;
 		NetworkBufferPool networkBufferPool2 = null;
 		try {
-			networkBufferPool1 = new NetworkBufferPool(100, PAGE_SIZE, 1);
-			networkBufferPool2 = new NetworkBufferPool(100, PAGE_SIZE, 1);
+			networkBufferPool1 = new NetworkBufferPool(100, PAGE_SIZE);
+			networkBufferPool2 = new NetworkBufferPool(100, PAGE_SIZE);
 			BufferPool pool1 = networkBufferPool1.createBufferPool(100, 100);
 			BufferPool pool2 = networkBufferPool2.createBufferPool(100, 100);
 
@@ -69,7 +69,8 @@ public class CheckpointBarrierAlignerMassiveRandomTest {
 			CheckpointedInputGate checkpointedInputGate =
 				new CheckpointedInputGate(
 					myIG,
-					new CheckpointBarrierAligner("Testing: No task associated", new DummyCheckpointInvokable(), myIG));
+					new CheckpointBarrierAligner("Testing: No task associated", new DummyCheckpointInvokable(), myIG),
+					new SyncMailboxExecutor());
 
 			for (int i = 0; i < 2000000; i++) {
 				BufferOrEvent boe = checkpointedInputGate.pollNext().get();
@@ -238,10 +239,6 @@ public class CheckpointBarrierAlignerMassiveRandomTest {
 
 		@Override
 		public void close() {
-		}
-
-		@Override
-		public void registerBufferReceivedListener(BufferReceivedListener listener) {
 		}
 	}
 }

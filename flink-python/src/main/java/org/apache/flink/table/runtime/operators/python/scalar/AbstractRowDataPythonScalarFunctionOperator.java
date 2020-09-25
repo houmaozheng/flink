@@ -30,6 +30,7 @@ import org.apache.flink.table.planner.codegen.CodeGeneratorContext;
 import org.apache.flink.table.planner.codegen.ProjectionCodeGenerator;
 import org.apache.flink.table.runtime.generated.GeneratedProjection;
 import org.apache.flink.table.runtime.generated.Projection;
+import org.apache.flink.table.runtime.operators.python.utils.StreamRecordRowDataWrappingCollector;
 import org.apache.flink.table.types.logical.RowType;
 
 import java.util.Arrays;
@@ -75,7 +76,6 @@ public abstract class AbstractRowDataPythonScalarFunctionOperator
 	}
 
 	@Override
-	@SuppressWarnings("unchecked")
 	public void open() throws Exception {
 		super.open();
 		rowDataWrapper = new StreamRecordRowDataWrappingCollector(output);

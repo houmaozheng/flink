@@ -101,17 +101,6 @@ public class InputChannelTestUtils {
 
 	public static LocalInputChannel createLocalInputChannel(
 		SingleInputGate inputGate,
-		int channelIndex,
-		ResultPartitionManager partitionManager) {
-
-		return InputChannelBuilder.newBuilder()
-			.setChannelIndex(channelIndex)
-			.setPartitionManager(partitionManager)
-			.buildLocalChannel(inputGate);
-	}
-
-	public static LocalInputChannel createLocalInputChannel(
-		SingleInputGate inputGate,
 		ResultPartitionManager partitionManager,
 		int initialBackoff,
 		int maxBackoff) {
@@ -140,6 +129,26 @@ public class InputChannelTestUtils {
 
 		return InputChannelBuilder.newBuilder()
 			.setConnectionManager(mockConnectionManagerWithPartitionRequestClient(client))
+			.buildRemoteChannel(inputGate);
+	}
+
+	public static RemoteInputChannel createRemoteInputChannel(
+		SingleInputGate inputGate,
+		int numExclusiveSegments) {
+
+		return InputChannelBuilder.newBuilder()
+			.setNetworkBuffersPerChannel(numExclusiveSegments)
+			.buildRemoteChannel(inputGate);
+	}
+
+	public static RemoteInputChannel createRemoteInputChannel(
+		SingleInputGate inputGate,
+		PartitionRequestClient client,
+		int numExclusiveSegments) {
+
+		return InputChannelBuilder.newBuilder()
+			.setConnectionManager(mockConnectionManagerWithPartitionRequestClient(client))
+			.setNetworkBuffersPerChannel(numExclusiveSegments)
 			.buildRemoteChannel(inputGate);
 	}
 
@@ -193,7 +202,7 @@ public class InputChannelTestUtils {
 		}
 
 		@Override
-		public Collection<MemorySegment> requestMemorySegments() {
+		public Collection<MemorySegment> requestMemorySegments(int numberOfSegmentsToRequest) {
 			return Collections.emptyList();
 		}
 
@@ -213,7 +222,7 @@ public class InputChannelTestUtils {
 		}
 
 		@Override
-		public Collection<MemorySegment> requestMemorySegments() {
+		public Collection<MemorySegment> requestMemorySegments(int numberOfSegmentsToRequest) {
 			return Collections.singletonList(MemorySegmentFactory.allocateUnpooledSegment(pageSize));
 		}
 

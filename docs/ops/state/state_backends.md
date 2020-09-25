@@ -54,7 +54,7 @@ The *MemoryStateBackend* holds data internally as objects on the Java heap. Key/
 that store the values, triggers, etc.
 
 Upon checkpoints, this state backend will snapshot the state and send it as part of the checkpoint acknowledgement messages to the
-JobManager (master), which stores it on its heap as well.
+JobManager, which stores it on its heap as well.
 
 The MemoryStateBackend can be configured to use asynchronous snapshots. While we strongly encourage the use of asynchronous snapshots to avoid blocking pipelines, please note that this is currently enabled 
 by default. To disable this feature, users can instantiate a `MemoryStateBackend` with the corresponding boolean flag in the constructor set to `false`(this should only used for debug), e.g.:
@@ -290,7 +290,7 @@ There are two ways to pass a RocksDBOptionsFactory to the RocksDB State Backend:
 
   - Configure options factory class name in the `flink-conf.yaml` via `state.backend.rocksdb.options-factory`.
   
-  - Set the options factory programmatically, e.g. `RocksDBStateBackend.setOptions(new MyOptionsFactory());`
+  - Set the options factory programmatically, e.g. `RocksDBStateBackend.setRocksDBOptions(new MyOptionsFactory());`
 
 <span class="label label-info">Note</span> Options factory which set programmatically would override the one configured via `flink-conf.yaml`,
 and options factory has a higher priority over the predefined options if ever configured or set.

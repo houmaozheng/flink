@@ -31,7 +31,7 @@ under the License.
 	</parent>
 
 	<artifactId>flink-connector-elasticsearch6_${scala.binary.version}</artifactId>
-	<name>flink-connector-elasticsearch6</name>
+	<name>Flink : Connectors : Elasticsearch 6</name>
 
 	<packaging>jar</packaging>
 
@@ -62,6 +62,13 @@ under the License.
 					<artifactId>elasticsearch</artifactId>
 				</exclusion>
 			</exclusions>
+		</dependency>
+
+		<dependency>
+			<!-- Bumped for security purposes -->
+			<groupId>org.yaml</groupId>
+			<artifactId>snakeyaml</artifactId>
+			<version>1.27</version>
 		</dependency>
 
 		<!-- Dependency for Elasticsearch 6.x REST Client -->

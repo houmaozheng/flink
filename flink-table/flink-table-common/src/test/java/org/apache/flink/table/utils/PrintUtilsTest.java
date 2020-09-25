@@ -85,9 +85,9 @@ public class PrintUtilsTest {
 				new PrintWriter(outContent));
 
 		assertEquals(
-				"+---------+-----+--------+---------+----------------+-----------+\n" +
-				"| boolean | int | bigint | varchar | decimal(10, 5) | timestamp |\n" +
-				"+---------+-----+--------+---------+----------------+-----------+\n" +
+				"+---------+-----+--------+---------+----------------+-----------+" + System.lineSeparator() +
+				"| boolean | int | bigint | varchar | decimal(10, 5) | timestamp |" + System.lineSeparator() +
+				"+---------+-----+--------+---------+----------------+-----------+" + System.lineSeparator() +
 				"0 row in set" + System.lineSeparator(),
 				outContent.toString());
 	}
@@ -100,12 +100,32 @@ public class PrintUtilsTest {
 				new PrintWriter(outContent),
 				PrintUtils.MAX_COLUMN_WIDTH,
 				"",
+				true, // derive column width by type
 				true);
 
 		assertEquals(
-				"+----------+---------+-----+--------+---------+----------------+-----------+\n" +
-				"| row_kind | boolean | int | bigint | varchar | decimal(10, 5) | timestamp |\n" +
-				"+----------+---------+-----+--------+---------+----------------+-----------+\n" +
+				"+----+---------+-------------+----------------------+--------------------------------+----------------+----------------------------+" + System.lineSeparator() +
+				"| op | boolean |         int |               bigint |                        varchar | decimal(10, 5) |                  timestamp |" + System.lineSeparator() +
+				"+----+---------+-------------+----------------------+--------------------------------+----------------+----------------------------+" + System.lineSeparator() +
+				"0 row in set" + System.lineSeparator(),
+				outContent.toString());
+	}
+
+	@Test
+	public void testPrintWithEmptyResultAndDeriveColumnWidthByContent() {
+		PrintUtils.printAsTableauForm(
+				getSchema(),
+				Collections.<Row>emptyList().iterator(),
+				new PrintWriter(outContent),
+				PrintUtils.MAX_COLUMN_WIDTH,
+				"",
+				false, // derive column width by content
+				false);
+
+		assertEquals(
+				"+---------+-----+--------+---------+----------------+-----------+" + System.lineSeparator() +
+				"| boolean | int | bigint | varchar | decimal(10, 5) | timestamp |" + System.lineSeparator() +
+				"+---------+-----+--------+---------+----------------+-----------+" + System.lineSeparator() +
 				"0 row in set" + System.lineSeparator(),
 				outContent.toString());
 	}
@@ -120,19 +140,22 @@ public class PrintUtilsTest {
 		// note: the expected result may look irregular because every CJK(Chinese/Japanese/Korean) character's
 		// width < 2 in IDE by default, every CJK character usually's width is 2, you can open this source file
 		// by vim or just cat the file to check the regular result.
+		// The last row of `varchar` value will pad with two ' ' before the column.
+		// Because the length of `これは日本語をテストするた` plus the length of `...` is 29,
+		// no more Japanese character can be added to the line.
 		assertEquals(
-				"+---------+-------------+----------------------+--------------------------------+----------------+----------------------------+\n" +
-				"| boolean |         int |               bigint |                        varchar | decimal(10, 5) |                  timestamp |\n" +
-				"+---------+-------------+----------------------+--------------------------------+----------------+----------------------------+\n" +
-				"|  (NULL) |           1 |                    2 |                            abc |           1.23 |      2020-03-01 18:39:14.0 |\n" +
-				"|   false |      (NULL) |                    0 |                                |              1 |      2020-03-01 18:39:14.1 |\n" +
-				"|    true |  2147483647 |               (NULL) |                        abcdefg |     1234567890 |     2020-03-01 18:39:14.12 |\n" +
-				"|   false | -2147483648 |  9223372036854775807 |                         (NULL) |    12345.06789 |    2020-03-01 18:39:14.123 |\n" +
-				"|    true |         100 | -9223372036854775808 |                     abcdefg111 |         (NULL) | 2020-03-01 18:39:14.123456 |\n" +
-				"|  (NULL) |          -1 |                   -1 |     abcdefghijklmnopqrstuvwxyz |   -12345.06789 |                     (NULL) |\n" +
-				"|  (NULL) |          -1 |                   -1 |                   这是一段中文 |   -12345.06789 |      2020-03-04 18:39:14.0 |\n" +
-				"|  (NULL) |          -1 |                   -1 |  これは日本語をテストするた... |   -12345.06789 |      2020-03-04 18:39:14.0 |\n" +
-				"+---------+-------------+----------------------+--------------------------------+----------------+----------------------------+\n" +
+				"+---------+-------------+----------------------+--------------------------------+----------------+----------------------------+" + System.lineSeparator() +
+				"| boolean |         int |               bigint |                        varchar | decimal(10, 5) |                  timestamp |" + System.lineSeparator() +
+				"+---------+-------------+----------------------+--------------------------------+----------------+----------------------------+" + System.lineSeparator() +
+				"|  (NULL) |           1 |                    2 |                            abc |           1.23 |      2020-03-01 18:39:14.0 |" + System.lineSeparator() +
+				"|   false |      (NULL) |                    0 |                                |              1 |      2020-03-01 18:39:14.1 |" + System.lineSeparator() +
+				"|    true |  2147483647 |               (NULL) |                        abcdefg |     1234567890 |     2020-03-01 18:39:14.12 |" + System.lineSeparator() +
+				"|   false | -2147483648 |  9223372036854775807 |                         (NULL) |    12345.06789 |    2020-03-01 18:39:14.123 |" + System.lineSeparator() +
+				"|    true |         100 | -9223372036854775808 |                     abcdefg111 |         (NULL) | 2020-03-01 18:39:14.123456 |" + System.lineSeparator() +
+				"|  (NULL) |          -1 |                   -1 | abcdefghijklmnopqrstuvwxyza... |   -12345.06789 |                     (NULL) |" + System.lineSeparator() +
+				"|  (NULL) |          -1 |                   -1 |                   这是一段中文 |   -12345.06789 |      2020-03-04 18:39:14.0 |" + System.lineSeparator() +
+				"|  (NULL) |          -1 |                   -1 |  これは日本語をテストするた... |   -12345.06789 |      2020-03-04 18:39:14.0 |" + System.lineSeparator() +
+				"+---------+-------------+----------------------+--------------------------------+----------------+----------------------------+" + System.lineSeparator() +
 				"8 rows in set" + System.lineSeparator(),
 				outContent.toString());
 	}
@@ -145,25 +168,52 @@ public class PrintUtilsTest {
 				new PrintWriter(outContent),
 				PrintUtils.MAX_COLUMN_WIDTH,
 				"",
+				true, // derive column width by type
 				true);
 
 		// note: the expected result may look irregular because every CJK(Chinese/Japanese/Korean) character's
 		// width < 2 in IDE by default, every CJK character usually's width is 2, you can open this source file
 		// by vim or just cat the file to check the regular result.
+		// The last row of `varchar` value will pad with two ' ' before the column.
+		// Because the length of `これは日本語をテストするた` plus the length of `...` is 29,
+		// no more Japanese character can be added to the line.
 		assertEquals(
-				"+----------+---------+-------------+----------------------+--------------------------------+----------------+----------------------------+\n" +
-				"| row_kind | boolean |         int |               bigint |                        varchar | decimal(10, 5) |                  timestamp |\n" +
-				"+----------+---------+-------------+----------------------+--------------------------------+----------------+----------------------------+\n" +
-				"|       +I |         |           1 |                    2 |                            abc |           1.23 |      2020-03-01 18:39:14.0 |\n" +
-				"|       +I |   false |             |                    0 |                                |              1 |      2020-03-01 18:39:14.1 |\n" +
-				"|       -D |    true |  2147483647 |                      |                        abcdefg |     1234567890 |     2020-03-01 18:39:14.12 |\n" +
-				"|       +I |   false | -2147483648 |  9223372036854775807 |                                |    12345.06789 |    2020-03-01 18:39:14.123 |\n" +
-				"|       +I |    true |         100 | -9223372036854775808 |                     abcdefg111 |                | 2020-03-01 18:39:14.123456 |\n" +
-				"|       -U |         |          -1 |                   -1 |     abcdefghijklmnopqrstuvwxyz |   -12345.06789 |                            |\n" +
-				"|       +U |         |          -1 |                   -1 |                   这是一段中文 |   -12345.06789 |      2020-03-04 18:39:14.0 |\n" +
-				"|       -D |         |          -1 |                   -1 |  これは日本語をテストするた... |   -12345.06789 |      2020-03-04 18:39:14.0 |\n" +
-				"+----------+---------+-------------+----------------------+--------------------------------+----------------+----------------------------+\n" +
+				"+----+---------+-------------+----------------------+--------------------------------+----------------+----------------------------+" + System.lineSeparator() +
+				"| op | boolean |         int |               bigint |                        varchar | decimal(10, 5) |                  timestamp |" + System.lineSeparator() +
+				"+----+---------+-------------+----------------------+--------------------------------+----------------+----------------------------+" + System.lineSeparator() +
+				"| +I |         |           1 |                    2 |                            abc |           1.23 |      2020-03-01 18:39:14.0 |" + System.lineSeparator() +
+				"| +I |   false |             |                    0 |                                |              1 |      2020-03-01 18:39:14.1 |" + System.lineSeparator() +
+				"| -D |    true |  2147483647 |                      |                        abcdefg |     1234567890 |     2020-03-01 18:39:14.12 |" + System.lineSeparator() +
+				"| +I |   false | -2147483648 |  9223372036854775807 |                                |    12345.06789 |    2020-03-01 18:39:14.123 |" + System.lineSeparator() +
+				"| +I |    true |         100 | -9223372036854775808 |                     abcdefg111 |                | 2020-03-01 18:39:14.123456 |" + System.lineSeparator() +
+				"| -U |         |          -1 |                   -1 | abcdefghijklmnopqrstuvwxyza... |   -12345.06789 |                            |" + System.lineSeparator() +
+				"| +U |         |          -1 |                   -1 |                   这是一段中文 |   -12345.06789 |      2020-03-04 18:39:14.0 |" + System.lineSeparator() +
+				"| -D |         |          -1 |                   -1 |  これは日本語をテストするた... |   -12345.06789 |      2020-03-04 18:39:14.0 |" + System.lineSeparator() +
+				"+----+---------+-------------+----------------------+--------------------------------+----------------+----------------------------+" + System.lineSeparator() +
 				"8 rows in set" + System.lineSeparator(),
+				outContent.toString());
+	}
+
+	@Test
+	public void testPrintWithMultipleRowsAndDeriveColumnWidthByContent() {
+		PrintUtils.printAsTableauForm(
+				getSchema(),
+				getData().subList(0, 3).iterator(),
+				new PrintWriter(outContent),
+				PrintUtils.MAX_COLUMN_WIDTH,
+				"",
+				false, // derive column width by content
+				true);
+
+		assertEquals(
+				"+----+---------+------------+--------+---------+----------------+------------------------+" + System.lineSeparator() +
+				"| op | boolean |        int | bigint | varchar | decimal(10, 5) |              timestamp |" + System.lineSeparator() +
+				"+----+---------+------------+--------+---------+----------------+------------------------+" + System.lineSeparator() +
+				"| +I |         |          1 |      2 |     abc |           1.23 |  2020-03-01 18:39:14.0 |" + System.lineSeparator() +
+				"| +I |   false |            |      0 |         |              1 |  2020-03-01 18:39:14.1 |" + System.lineSeparator() +
+				"| -D |    true | 2147483647 |        | abcdefg |     1234567890 | 2020-03-01 18:39:14.12 |" + System.lineSeparator() +
+				"+----+---------+------------+--------+---------+----------------+------------------------+" + System.lineSeparator() +
+				"3 rows in set" + System.lineSeparator(),
 				outContent.toString());
 	}
 
@@ -230,7 +280,7 @@ public class PrintUtilsTest {
 				null,
 				-1,
 				-1,
-				"abcdefghijklmnopqrstuvwxyz",
+				"abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz",
 				BigDecimal.valueOf(-12345.06789),
 				null)
 		);

@@ -274,7 +274,7 @@ public class WindowWordCount {
         DataStream<Tuple2<String, Integer>> dataStream = env
                 .socketTextStream("localhost", 9999)
                 .flatMap(new Splitter())
-                .keyBy(0)
+                .keyBy(value -> value.f0)
                 .timeWindow(Time.seconds(5))
                 .sum(1);
 
@@ -311,7 +311,7 @@ object WindowWordCount {
 
     val counts = text.flatMap { _.toLowerCase.split("\\W+") filter { _.nonEmpty } }
       .map { (_, 1) }
-      .keyBy(0)
+      .keyBy(_._1)
       .timeWindow(Time.seconds(5))
       .sum(1)
 
@@ -395,7 +395,7 @@ Collection-based:
 Custom:
 
 - `addSource` - Attach a new source function. For example, to read from Apache Kafka you can use
-    `addSource(new FlinkKafkaConsumer010<>(...))`. See [connectors]({{ site.baseurl }}/dev/connectors/index.html) for more details.
+    `addSource(new FlinkKafkaConsumer<>(...))`. See [connectors]({{ site.baseurl }}/dev/connectors/index.html) for more details.
 
 </div>
 
@@ -453,7 +453,7 @@ Collection-based:
 Custom:
 
 - `addSource` - Attach a new source function. For example, to read from Apache Kafka you can use
-    `addSource(new FlinkKafkaConsumer010<>(...))`. See [connectors]({{ site.baseurl }}/dev/connectors/) for more details.
+    `addSource(new FlinkKafkaConsumer<>(...))`. See [connectors]({{ site.baseurl }}/dev/connectors/) for more details.
 
 </div>
 </div>
@@ -551,7 +551,7 @@ Iterations
 
 Iterative streaming programs implement a step function and embed it into an `IterativeStream`. As a DataStream
 program may never finish, there is no maximum number of iterations. Instead, you need to specify which part
-of the stream is fed back to the iteration and which part is forwarded downstream using a `split` transformation
+of the stream is fed back to the iteration and which part is forwarded downstream using a [side output]({% link dev/stream/side_output.md %})
 or a `filter`. Here, we show an example using filters. First, we define an `IterativeStream`
 
 {% highlight java %}
@@ -614,7 +614,7 @@ DataStream<Long> lessThanZero = minusOne.filter(new FilterFunction<Long>() {
 
 Iterative streaming programs implement a step function and embed it into an `IterativeStream`. As a DataStream
 program may never finish, there is no maximum number of iterations. Instead, you need to specify which part
-of the stream is fed back to the iteration and which part is forwarded downstream using a `split` transformation
+of the stream is fed back to the iteration and which part is forwarded downstream using a [side output]({% link dev/stream/side_output.md %})
 or a `filter`. Here, we show an example iteration where the body (the part of the computation that is repeated)
 is a simple map transformation, and the elements that are fed back are distinguished by the elements that
 are forwarded downstream using filters.

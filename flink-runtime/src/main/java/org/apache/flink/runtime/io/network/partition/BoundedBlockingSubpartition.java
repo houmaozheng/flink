@@ -30,7 +30,6 @@ import javax.annotation.concurrent.GuardedBy;
 import java.io.File;
 import java.io.IOException;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
@@ -116,7 +115,7 @@ final class BoundedBlockingSubpartition extends ResultSubpartition {
 	}
 
 	@Override
-	public boolean add(BufferConsumer bufferConsumer, boolean isPriorityEvent) throws IOException {
+	public boolean add(BufferConsumer bufferConsumer) throws IOException {
 		if (isFinished()) {
 			bufferConsumer.close();
 			return false;
@@ -144,11 +143,6 @@ final class BoundedBlockingSubpartition extends ResultSubpartition {
 			writeAndCloseBufferConsumer(currentBuffer);
 			currentBuffer = null;
 		}
-	}
-
-	@Override
-	public List<Buffer> requestInflightBufferSnapshot() {
-		throw new UnsupportedOperationException("The batch job does not support unaligned checkpoint.");
 	}
 
 	private void writeAndCloseBufferConsumer(BufferConsumer bufferConsumer) throws IOException {
@@ -186,7 +180,7 @@ final class BoundedBlockingSubpartition extends ResultSubpartition {
 
 		isFinished = true;
 		flushCurrentBuffer();
-		writeAndCloseBufferConsumer(EventSerializer.toBufferConsumer(EndOfPartitionEvent.INSTANCE));
+		writeAndCloseBufferConsumer(EventSerializer.toBufferConsumer(EndOfPartitionEvent.INSTANCE, false));
 		data.finishWrite();
 	}
 
@@ -209,8 +203,6 @@ final class BoundedBlockingSubpartition extends ResultSubpartition {
 		synchronized (lock) {
 			checkState(!isReleased, "data partition already released");
 			checkState(isFinished, "writing of blocking partition not yet finished");
-
-			availability.notifyDataAvailable();
 
 			final BoundedBlockingSubpartitionReader reader = new BoundedBlockingSubpartitionReader(
 					this, data, numDataBuffersWritten, availability);
@@ -240,13 +232,6 @@ final class BoundedBlockingSubpartition extends ResultSubpartition {
 		if (readers.isEmpty()) {
 			data.close();
 		}
-	}
-
-	// ------------------------------ legacy ----------------------------------
-
-	@Override
-	public int releaseMemory() throws IOException {
-		return 0;
 	}
 
 	// ---------------------------- statistics --------------------------------

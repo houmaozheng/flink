@@ -35,9 +35,32 @@ Flink SQL 目前支持以下 ALTER 语句：
 
 ## 执行 ALTER 语句
 
-可以使用 `TableEnvironment` 中的 `sqlUpdate()` 方法执行 ALTER 语句，也可以在 [SQL CLI]({{ site.baseurl }}/zh/dev/table/sqlClient.html) 中执行 ALTER 语句。 若 ALTER 操作执行成功，`sqlUpdate()` 方法不返回任何内容，否则会抛出异常。
+<div class="codetabs" data-hide-tabs="1" markdown="1">
 
-以下的例子展示了如何在 `TableEnvironment` 和  SQL CLI 中执行一个 ALTER 语句。
+<div data-lang="java/scala" markdown="1">
+
+可以使用 `TableEnvironment` 中的 `executeSql()` 方法执行 ALTER 语句。 若 ALTER 操作执行成功，`executeSql()` 方法返回 'OK'，否则会抛出异常。
+
+以下的例子展示了如何在 `TableEnvironment` 中执行一个 ALTER 语句。
+
+</div>
+
+<div data-lang="python" markdown="1">
+
+可以使用 `TableEnvironment` 中的 `execute_sql()` 方法执行 ALTER 语句。 若 ALTER 操作执行成功，`execute_sql()` 方法返回 'OK'，否则会抛出异常。
+
+以下的例子展示了如何在 `TableEnvironment` 中执行一个 ALTER 语句。
+
+</div>
+
+<div data-lang="SQL CLI" markdown="1">
+
+可以在 [SQL CLI]({{ site.baseurl }}/zh/dev/table/sqlClient.html) 中执行 ALTER 语句。
+
+以下的例子展示了如何在 SQL CLI 中执行一个 ALTER 语句。
+
+</div>
+</div>
 
 <div class="codetabs" markdown="1">
 <div data-lang="java" markdown="1">
@@ -46,16 +69,18 @@ EnvironmentSettings settings = EnvironmentSettings.newInstance()...
 TableEnvironment tableEnv = TableEnvironment.create(settings);
 
 // 注册名为 “Orders” 的表
-tableEnv.sqlUpdate("CREATE TABLE Orders (`user` BIGINT, product STRING, amount INT) WITH (...)");
+tableEnv.executeSql("CREATE TABLE Orders (`user` BIGINT, product STRING, amount INT) WITH (...)");
 
 // 字符串数组： ["Orders"]
-String[] tables = tableEnv.listTable();
+String[] tables = tableEnv.listTables();
+// or tableEnv.executeSql("SHOW TABLES").print();
 
 // 把 “Orders” 的表名改为 “NewOrders”
-tableEnv.sqlUpdate("ALTER TABLE Orders RENAME TO NewOrders;");
+tableEnv.executeSql("ALTER TABLE Orders RENAME TO NewOrders;");
 
 // 字符串数组：["NewOrders"]
-String[] tables = tableEnv.listTable();
+String[] tables = tableEnv.listTables();
+// or tableEnv.executeSql("SHOW TABLES").print();
 {% endhighlight %}
 </div>
 
@@ -65,32 +90,36 @@ val settings = EnvironmentSettings.newInstance()...
 val tableEnv = TableEnvironment.create(settings)
 
 // 注册名为 “Orders” 的表
-tableEnv.sqlUpdate("CREATE TABLE Orders (`user` BIGINT, product STRING, amount INT) WITH (...)");
+tableEnv.executeSql("CREATE TABLE Orders (`user` BIGINT, product STRING, amount INT) WITH (...)");
 
 // 字符串数组： ["Orders"]
-val tables = tableEnv.listTable()
+val tables = tableEnv.listTables()
+// or tableEnv.executeSql("SHOW TABLES").print()
 
 // 把 “Orders” 的表名改为 “NewOrders”
-tableEnv.sqlUpdate("ALTER TABLE Orders RENAME TO NewOrders;")
+tableEnv.executeSql("ALTER TABLE Orders RENAME TO NewOrders;")
 
 // 字符串数组：["NewOrders"]
-val tables = tableEnv.listTable()
+val tables = tableEnv.listTables()
+// or tableEnv.executeSql("SHOW TABLES").print()
 {% endhighlight %}
 </div>
 
 <div data-lang="python" markdown="1">
 {% highlight python %}
-settings = EnvironmentSettings.newInstance()...
-table_env = TableEnvironment.create(settings)
+settings = EnvironmentSettings.new_instance()...
+table_env = StreamTableEnvironment.create(env, settings)
 
 # 字符串数组： ["Orders"]
-tables = tableEnv.listTable()
+tables = table_env.list_tables()
+# or table_env.execute_sql("SHOW TABLES").print()
 
 # 把 “Orders” 的表名改为 “NewOrders”
-tableEnv.sqlUpdate("ALTER TABLE Orders RENAME TO NewOrders;")
+table_env.execute_sql("ALTER TABLE Orders RENAME TO NewOrders;")
 
 # 字符串数组：["NewOrders"]
-tables = tableEnv.listTable()
+tables = table_env.list_tables()
+# or table_env.execute_sql("SHOW TABLES").print()
 {% endhighlight %}
 </div>
 
@@ -149,7 +178,7 @@ ALTER [TEMPORARY|TEMPORARY SYSTEM] FUNCTION
 
 如果 language tag 是 JAVA 或者 SCALA ，则 identifier 是 UDF 实现类的全限定名。关于 JAVA/SCALA UDF 的实现，请参考 [自定义函数]({{ site.baseurl }}/zh/dev/table/functions/udfs.html)。
 
-如果 language tag 是 PYTHON ， 则 identifier 是 UDF 对象的全限定名，例如 `pyflink.table.tests.test_udf.add`。关于 PYTHON UDF 的实现，请参考 [Python UDFs]({{ site.baseurl }}/zh/dev/table/python/python_udfs.html)。
+如果 language tag 是 PYTHON ， 则 identifier 是 UDF 对象的全限定名，例如 `pyflink.table.tests.test_udf.add`。关于 PYTHON UDF 的实现，请参考 [Python UDFs]({% link dev/python/table-api-users-guide/udfs/python_udfs.zh.md %})。
 
 **TEMPORARY**
 

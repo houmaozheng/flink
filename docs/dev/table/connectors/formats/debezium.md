@@ -24,6 +24,7 @@ under the License.
 -->
 
 <span class="label label-info">Changelog-Data-Capture Format</span>
+<span class="label label-info">Format: Serialization Schema</span>
 <span class="label label-info">Format: Deserialization Schema</span>
 
 * This will be replaced by the TOC
@@ -36,6 +37,9 @@ Flink supports to interpret Debezium JSON messages as INSERT/UPDATE/DELETE messa
  - auditing logs
  - real-time materialized views on databases
  - temporal join changing history of a database table and so on.
+
+Flink also supports to encode the INSERT/UPDATE/DELETE messages in Flink SQL as Debezium JSON messages, and emit to storage like Kafka.
+However, currently Flink can't combine UPDATE_BEFORE and UPDATE_AFTER into a single UPDATE message. Therefore, Flink encodes UPDATE_BEFORE and UDPATE_AFTER as DELETE and INSERT Debezium messages.
 
 *Note: Support for interpreting Debezium Avro messages and emitting Debezium messages is on the roadmap.*
 
@@ -200,8 +204,20 @@ Format Options
     </tbody>
 </table>
 
+Caveats
+----------------
+
+### Consuming data produced by Debezium Postgres Connector
+
+If you are using [Debezium Connector for PostgreSQL](https://debezium.io/documentation/reference/1.2/connectors/postgresql.html) to capture the changes to Kafka, please make sure the [REPLICA IDENTITY](https://www.postgresql.org/docs/current/sql-altertable.html#SQL-CREATETABLE-REPLICA-IDENTITY) configuration of the monitored PostgreSQL table has been set to `FULL` which is by default `DEFAULT`.
+Otherwise, Flink SQL currently will fail to interpret the Debezium data.
+
+In `FULL` strategy, the UPDATE and DELETE events will contain the previous values of all the table’s columns. In other strategies, the "before" field of UPDATE and DELETE events will only contain primary key columns or null if no primary key.
+You can change the `REPLICA IDENTITY` by running `ALTER TABLE <your-table-name> REPLICA IDENTITY FULL`.
+See more details in [Debezium Documentation for PostgreSQL REPLICA IDENTITY](https://debezium.io/documentation/reference/1.2/connectors/postgresql.html#postgresql-replica-identity).
+
 Data Type Mapping
 ----------------
 
-Currently, the Debezium format uses JSON format for deserialization. Please refer to [JSON format documentation]({% link dev/table/connectors/formats/json.md %}#data-type-mapping) for more details about the data type mapping.
+Currently, the Debezium format uses JSON format for serialization and deserialization. Please refer to [JSON format documentation]({% link dev/table/connectors/formats/json.md %}#data-type-mapping) for more details about the data type mapping.
 

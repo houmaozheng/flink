@@ -28,6 +28,7 @@ import org.apache.flink.connector.jdbc.internal.connection.SimpleJdbcConnectionP
 import org.apache.flink.connector.jdbc.internal.executor.JdbcBatchStatementExecutor;
 import org.apache.flink.connector.jdbc.internal.options.JdbcDmlOptions;
 import org.apache.flink.connector.jdbc.internal.options.JdbcOptions;
+import org.apache.flink.connector.jdbc.statement.FieldNamedPreparedStatementImpl;
 import org.apache.flink.connector.jdbc.utils.JdbcUtils;
 import org.apache.flink.runtime.util.ExecutorThreadFactory;
 import org.apache.flink.types.Row;
@@ -41,6 +42,7 @@ import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.io.Serializable;
 import java.sql.SQLException;
+import java.util.HashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -150,7 +152,7 @@ public class JdbcBatchingOutputFormat<In, JdbcIn, JdbcExec extends JdbcBatchStat
 		try {
 			addToBatch(record, jdbcRecordExtractor.apply(record));
 			batchCount++;
-			if (batchCount >= executionOptions.getBatchSize()) {
+			if (executionOptions.getBatchSize() > 0 && batchCount >= executionOptions.getBatchSize()) {
 				flush();
 			}
 		} catch (Exception e) {
@@ -209,8 +211,6 @@ public class JdbcBatchingOutputFormat<In, JdbcIn, JdbcExec extends JdbcBatchStat
 		if (!closed) {
 			closed = true;
 
-			checkFlushException();
-
 			if (this.scheduledFuture != null) {
 				scheduledFuture.cancel(false);
 				this.scheduler.shutdown();
@@ -220,6 +220,7 @@ public class JdbcBatchingOutputFormat<In, JdbcIn, JdbcExec extends JdbcBatchStat
 				try {
 					flush();
 				} catch (Exception e) {
+					LOG.warn("Writing records to JDBC failed.", e);
 					throw new RuntimeException("Writing records to JDBC failed.", e);
 				}
 			}
@@ -233,6 +234,7 @@ public class JdbcBatchingOutputFormat<In, JdbcIn, JdbcExec extends JdbcBatchStat
 			}
 		}
 		super.close();
+		checkFlushException();
 	}
 
 	public static Builder builder() {
@@ -324,7 +326,9 @@ public class JdbcBatchingOutputFormat<In, JdbcIn, JdbcExec extends JdbcBatchStat
 					executionOptionsBuilder.build());
 			} else {
 				// warn: don't close over builder fields
-				String sql = options.getDialect().getInsertIntoStatement(dml.getTableName(), dml.getFieldNames());
+				String sql = FieldNamedPreparedStatementImpl.parseNamedStatement(
+					options.getDialect().getInsertIntoStatement(dml.getTableName(), dml.getFieldNames()),
+					new HashMap<>());
 				return new JdbcBatchingOutputFormat<>(
 					new SimpleJdbcConnectionProvider(options),
 					executionOptionsBuilder.build(),
@@ -348,5 +352,4 @@ public class JdbcBatchingOutputFormat<In, JdbcIn, JdbcExec extends JdbcBatchStat
 	static JdbcStatementBuilder<Row> createRowJdbcStatementBuilder(int[] types) {
 		return (st, record) -> setRecordToStatement(st, types, record);
 	}
-
 }

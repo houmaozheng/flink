@@ -86,6 +86,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 
 import scala.Option;
@@ -164,7 +165,8 @@ public class MesosResourceManager extends ResourceManager<RegisteredMesosWorkerN
 			MesosTaskManagerParameters taskManagerParameters,
 			ContainerSpecification taskManagerContainerSpec,
 			@Nullable String webUiUrl,
-			ResourceManagerMetricGroup resourceManagerMetricGroup) {
+			ResourceManagerMetricGroup resourceManagerMetricGroup,
+			Executor ioExecutor) {
 		super(
 			rpcService,
 			resourceId,
@@ -176,7 +178,8 @@ public class MesosResourceManager extends ResourceManager<RegisteredMesosWorkerN
 			clusterInformation,
 			fatalErrorHandler,
 			resourceManagerMetricGroup,
-			AkkaUtils.getTimeoutAsTime(flinkConfig));
+			AkkaUtils.getTimeoutAsTime(flinkConfig),
+			ioExecutor);
 
 		this.mesosServices = Preconditions.checkNotNull(mesosServices);
 		this.actorSystem = Preconditions.checkNotNull(mesosServices.getLocalActorSystem());
@@ -235,7 +238,7 @@ public class MesosResourceManager extends ResourceManager<RegisteredMesosWorkerN
 	protected void initialize() throws ResourceManagerException {
 		// create and start the worker store
 		try {
-			this.workerStore = mesosServices.createMesosWorkerStore(flinkConfig, getRpcService().getExecutor());
+			this.workerStore = mesosServices.createMesosWorkerStore(flinkConfig, ioExecutor);
 			workerStore.start();
 		} catch (Exception e) {
 			throw new ResourceManagerException("Unable to initialize the worker store.", e);
@@ -332,7 +335,7 @@ public class MesosResourceManager extends ResourceManager<RegisteredMesosWorkerN
 			} catch (final Exception e) {
 				throw new CompletionException(new ResourceManagerException(e));
 			}
-		}, getRpcService().getExecutor());
+		}, ioExecutor);
 	}
 
 	/**
@@ -394,8 +397,8 @@ public class MesosResourceManager extends ResourceManager<RegisteredMesosWorkerN
 	}
 
 	@Override
-	public CompletableFuture<Void> onStop() {
-		return stopSupportingActorsAsync().thenCompose((ignored) -> super.onStop());
+	public void terminate() throws Exception {
+		stopSupportingActorsAsync().get();
 	}
 
 	@Override
@@ -460,7 +463,7 @@ public class MesosResourceManager extends ResourceManager<RegisteredMesosWorkerN
 
 	@Override
 	public boolean stopWorker(RegisteredMesosWorkerNode workerNode) {
-		LOG.info("Stopping worker {}.", workerNode.getResourceID());
+		LOG.info("Stopping worker {}.", workerNode.getResourceID().getStringWithMetadata());
 		try {
 
 			if (workersInLaunch.containsKey(workerNode.getResourceID())) {
@@ -478,10 +481,10 @@ public class MesosResourceManager extends ResourceManager<RegisteredMesosWorkerN
 				}
 			}
 			else if (workersBeingReturned.containsKey(workerNode.getResourceID())) {
-				LOG.info("Ignoring request to stop worker {} because it is already being stopped.", workerNode.getResourceID());
+				LOG.info("Ignoring request to stop worker {} because it is already being stopped.", workerNode.getResourceID().getStringWithMetadata());
 			}
 			else {
-				LOG.warn("Unrecognized worker {}.", workerNode.getResourceID());
+				LOG.warn("Unrecognized worker {}.", workerNode.getResourceID().getStringWithMetadata());
 			}
 		}
 		catch (Exception e) {

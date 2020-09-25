@@ -248,6 +248,14 @@ public class NettyShuffleEnvironmentOptions {
 			.withDescription("The Netty client connection timeout.");
 
 	@Documentation.Section(Documentation.Sections.ALL_TASK_MANAGER_NETWORK)
+	public static final ConfigOption<Integer> NETWORK_RETRIES =
+		key("taskmanager.network.retries")
+			.defaultValue(0)
+			.withDeprecatedKeys("taskmanager.network.retries")
+			.withDescription("The number of retry attempts for network communication." +
+				" Currently it's only used for establishing input/output channel connections");
+
+	@Documentation.Section(Documentation.Sections.ALL_TASK_MANAGER_NETWORK)
 	public static final ConfigOption<Integer> SEND_RECEIVE_BUFFER_SIZE =
 		key("taskmanager.network.netty.sendReceiveBufferSize")
 			.defaultValue(0) // default: 0 => Netty's default
@@ -289,11 +297,6 @@ public class NettyShuffleEnvironmentOptions {
 			.withDescription("Maximum backoff in milliseconds for partition requests of input channels.");
 
 	// ------------------------------------------------------------------------
-
-	@Documentation.ExcludeFromDocumentation("dev use only; likely temporary")
-	public static final ConfigOption<Boolean> FORCE_PARTITION_RELEASE_ON_CONSUMPTION =
-		key("taskmanager.network.partition.force-release-on-consumption")
-			.defaultValue(false);
 
 	/** Not intended to be instantiated. */
 	private NettyShuffleEnvironmentOptions() {}

@@ -23,6 +23,7 @@ import org.apache.flink.runtime.clusterframework.types.ResourceProfile;
 import org.apache.flink.runtime.clusterframework.types.SlotProfile;
 import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutor;
 import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutorServiceAdapter;
+import org.apache.flink.runtime.jobmanager.scheduler.NoResourceAvailableException;
 import org.apache.flink.runtime.jobmaster.SlotRequestId;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.TestLogger;
@@ -40,10 +41,10 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -90,8 +91,9 @@ public class BulkSlotProviderImplTest extends TestLogger {
 
 		slotPool = new SlotPoolBuilder(mainThreadExecutor).build();
 
-		bulkSlotProvider = new BulkSlotProviderImpl(LocationPreferenceSlotSelectionStrategy.createDefault(), slotPool);
-		bulkSlotProvider.start(mainThreadExecutor);
+		PhysicalSlotRequestBulkCheckerImpl slotRequestBulkChecker = PhysicalSlotRequestBulkCheckerImpl.createFromSlotPool(slotPool, clock);
+		slotRequestBulkChecker.start(mainThreadExecutor);
+		bulkSlotProvider = new BulkSlotProviderImpl(LocationPreferenceSlotSelectionStrategy.createDefault(), slotPool, slotRequestBulkChecker);
 	}
 
 	@After
@@ -110,7 +112,7 @@ public class BulkSlotProviderImplTest extends TestLogger {
 
 		final CompletableFuture<Collection<PhysicalSlotRequest.Result>> slotFutures = allocateSlots(requests);
 
-		final Collection<PhysicalSlotRequest.Result> results = slotFutures.get(TIMEOUT.getSize(), TIMEOUT.getUnit());
+		final Collection<PhysicalSlotRequest.Result> results = slotFutures.get();
 		final Collection<SlotRequestId> resultRequestIds = results.stream()
 			.map(PhysicalSlotRequest.Result::getSlotRequestId)
 			.collect(Collectors.toList());
@@ -119,7 +121,7 @@ public class BulkSlotProviderImplTest extends TestLogger {
 	}
 
 	@Test
-	public void testBulkSlotAllocationFulfilledWithNewSlots() {
+	public void testBulkSlotAllocationFulfilledWithNewSlots() throws ExecutionException, InterruptedException {
 		final List<PhysicalSlotRequest> requests = Arrays.asList(
 			createPhysicalSlotRequest(),
 			createPhysicalSlotRequest());
@@ -131,8 +133,7 @@ public class BulkSlotProviderImplTest extends TestLogger {
 
 		addSlotToSlotPool();
 
-		assertThat(slotFutures.isDone(), is(true));
-		assertThat(slotFutures.isCompletedExceptionally(), is(false));
+		slotFutures.get();
 	}
 
 	@Test
@@ -143,7 +144,7 @@ public class BulkSlotProviderImplTest extends TestLogger {
 			exception,
 			"Slot request bulk is not fulfillable!");
 		assertThat(cause.isPresent(), is(true));
-		assertThat(cause.get(), instanceOf(TimeoutException.class));
+		assertThat(cause.get(), instanceOf(NoResourceAvailableException.class));
 	}
 
 	@Test
@@ -185,8 +186,19 @@ public class BulkSlotProviderImplTest extends TestLogger {
 	}
 
 	@Test
-	public void testIndividualBatchSlotRequestTimeoutCheckIsDisabled() {
+	public void testIndividualBatchSlotRequestTimeoutCheckIsDisabledOnAllocatingNewSlots() {
+		assertThat(slotPool.isBatchSlotRequestTimeoutCheckEnabled(), is(true));
+
+		allocateSlots(Collections.singletonList(createPhysicalSlotRequest()));
+
+		// drain the main thread tasks to ensure BulkSlotProviderImpl#requestNewSlot() to have been invoked
+		drainMainThreadExecutorTasks();
+
 		assertThat(slotPool.isBatchSlotRequestTimeoutCheckEnabled(), is(false));
+	}
+
+	private static void drainMainThreadExecutorTasks() {
+		CompletableFuture.runAsync(() -> {}, mainThreadExecutor).join();
 	}
 
 	private void addSlotToSlotPool() {
@@ -209,6 +221,6 @@ public class BulkSlotProviderImplTest extends TestLogger {
 		return new PhysicalSlotRequest(
 			new SlotRequestId(),
 			SlotProfile.noLocality(ResourceProfile.UNKNOWN),
-			true);
+			false);
 	}
 }

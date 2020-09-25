@@ -50,7 +50,7 @@ import scala.collection.JavaConverters._
   * the Calcite [[RelOptTable]] to the Flink specific [[TableSourceTable]].
   *
   * <p>This table is only used to translate the catalog table into [[TableSourceTable]]
-  * during the last phrase of sql-to-rel conversion, it is overdue once the sql node was converted
+  * during the last phase of sql-to-rel conversion, it is overdue once the sql node was converted
   * to relational expression.
   *
   * @param schemaTable Schema table which takes the variables needed to find the table source
@@ -200,9 +200,6 @@ class CatalogSourceTable[T](
   private def validateTableSource(tableSource: DynamicTableSource): Unit = {
     // throw exception if unsupported ability interface is implemented
     val unsupportedAbilities = List(
-      classOf[SupportsFilterPushDown],
-      classOf[SupportsLimitPushDown],
-      classOf[SupportsPartitionPushDown],
       classOf[SupportsComputedColumnPushDown],
       classOf[SupportsWatermarkPushDown])
     unsupportedAbilities.foreach { ability =>

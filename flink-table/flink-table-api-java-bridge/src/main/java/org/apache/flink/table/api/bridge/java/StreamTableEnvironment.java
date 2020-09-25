@@ -170,7 +170,13 @@ public interface StreamTableEnvironment extends TableEnvironment {
 	 * @param aggregateFunction The AggregateFunction to register.
 	 * @param <T> The type of the output value.
 	 * @param <ACC> The type of aggregate accumulator.
+	 *
+	 * @deprecated Use {@link #createTemporarySystemFunction(String, UserDefinedFunction)} instead. Please
+	 *             note that the new method also uses the new type system and reflective extraction logic. It
+	 *             might be necessary to update the function implementation as well. See the documentation of
+	 *             {@link AggregateFunction} for more information on the new function design.
 	 */
+	@Deprecated
 	<T, ACC> void registerFunction(String name, AggregateFunction<T, ACC> aggregateFunction);
 
 	/**
@@ -181,7 +187,13 @@ public interface StreamTableEnvironment extends TableEnvironment {
 	 * @param tableAggregateFunction The TableAggregateFunction to register.
 	 * @param <T> The type of the output value.
 	 * @param <ACC> The type of aggregate accumulator.
+	 *
+	 * @deprecated Use {@link #createTemporarySystemFunction(String, UserDefinedFunction)} instead. Please
+	 *             note that the new method also uses the new type system and reflective extraction logic. It
+	 *             might be necessary to update the function implementation as well. See the documentation of
+	 *             {@link TableAggregateFunction} for more information on the new function design.
 	 */
+	@Deprecated
 	<T, ACC> void registerFunction(String name, TableAggregateFunction<T, ACC> tableAggregateFunction);
 
 	/**
@@ -636,8 +648,12 @@ public interface StreamTableEnvironment extends TableEnvironment {
 	 * </pre>
 	 *
 	 * @param connectorDescriptor connector descriptor describing the external system
+	 * @deprecated The SQL {@code CREATE TABLE} DDL is richer than this part of the API. This method
+	 * might be refactored in the next versions. Please use {@link #executeSql(String) executeSql(ddl)}
+	 * to register a table instead.
 	 */
 	@Override
+	@Deprecated
 	StreamTableDescriptor connect(ConnectorDescriptor connectorDescriptor);
 
 	/**

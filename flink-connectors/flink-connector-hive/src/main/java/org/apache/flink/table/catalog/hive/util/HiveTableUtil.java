@@ -19,6 +19,7 @@
 package org.apache.flink.table.catalog.hive.util;
 
 import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.connectors.hive.FlinkHiveException;
 import org.apache.flink.sql.parser.hive.ddl.SqlAlterHiveTable;
 import org.apache.flink.sql.parser.hive.ddl.SqlCreateHiveTable.HiveTableRowFormat;
 import org.apache.flink.table.api.TableSchema;
@@ -46,6 +47,7 @@ import org.apache.flink.table.functions.BuiltInFunctionDefinitions;
 import org.apache.flink.table.functions.FunctionDefinition;
 import org.apache.flink.table.functions.hive.conversion.HiveInspectors;
 import org.apache.flink.table.types.DataType;
+import org.apache.flink.table.types.logical.LogicalTypeFamily;
 import org.apache.flink.table.types.logical.LogicalTypeRoot;
 
 import org.apache.hadoop.hive.conf.HiveConf;
@@ -402,6 +404,23 @@ public class HiveTableUtil {
 				.collect(Collectors.toMap(t -> t.f0, t -> t.f1));
 	}
 
+	/**
+	 * Check whether to read or write on the hive ACID table.
+	 *
+	 * @param catalogTable Hive catalog table.
+	 * @param tablePath    Identifier table path.
+	 * @throws FlinkHiveException Thrown, if the source or sink table is transactional.
+	 */
+	public static void checkAcidTable(CatalogTable catalogTable, ObjectPath tablePath) {
+		String tableIsTransactional = catalogTable.getOptions().get("transactional");
+		if (tableIsTransactional == null) {
+			tableIsTransactional = catalogTable.getOptions().get("transactional".toUpperCase());
+		}
+		if (tableIsTransactional != null && tableIsTransactional.equalsIgnoreCase("true")) {
+			throw new FlinkHiveException(String.format("Reading or writing ACID table %s is not supported.", tablePath));
+		}
+	}
+
 	private static class ExpressionExtractor implements ExpressionVisitor<String> {
 
 		// maps a supported function to its name
@@ -453,22 +472,16 @@ public class HiveTableUtil {
 			if (value == null) {
 				return "null";
 			}
+			LogicalTypeRoot typeRoot = dataType.getLogicalType().getTypeRoot();
+			if (typeRoot.getFamilies().contains(LogicalTypeFamily.DATETIME)) {
+				// hive not support partition filter push down with these types.
+				return null;
+			}
 			value = HiveInspectors.getConversion(HiveInspectors.getObjectInspector(dataType), dataType.getLogicalType(), hiveShim)
 					.toHiveObject(value);
 			String res = value.toString();
-			LogicalTypeRoot typeRoot = dataType.getLogicalType().getTypeRoot();
-			switch (typeRoot) {
-				case CHAR:
-				case VARCHAR:
-					res = "'" + res.replace("'", "''") + "'";
-					break;
-				case DATE:
-				case TIMESTAMP_WITHOUT_TIME_ZONE:
-				case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
-					// hive not support partition filter push down with these types.
-					return null;
-				default:
-					break;
+			if (typeRoot == LogicalTypeRoot.CHAR || typeRoot == LogicalTypeRoot.VARCHAR) {
+				res = "'" + res.replace("'", "''") + "'";
 			}
 			return res;
 		}

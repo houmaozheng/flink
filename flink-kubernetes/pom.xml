@@ -28,7 +28,7 @@ under the License.
 	</parent>
 
 	<artifactId>flink-kubernetes_${scala.binary.version}</artifactId>
-	<name>flink-kubernetes</name>
+	<name>Flink : Kubernetes</name>
 	<packaging>jar</packaging>
 
 	<properties>
@@ -42,6 +42,12 @@ under the License.
 				<groupId>com.squareup.okhttp3</groupId>
 				<artifactId>okhttp</artifactId>
 				<version>3.12.1</version>
+			</dependency>
+			<dependency>
+				<!-- Bumped for security purposes -->
+				<groupId>org.yaml</groupId>
+				<artifactId>snakeyaml</artifactId>
+				<version>1.27</version>
 			</dependency>
 		</dependencies>
 	</dependencyManagement>
@@ -132,7 +138,6 @@ under the License.
 									<include>com.squareup.okhttp3:*</include>
 									<include>com.squareup.okio:okio</include>
 									<include>org.yaml:*</include>
-									<include>com.mifmif:*</include>
 									<include>dk.brics.automaton:*</include>
 
 									<include>META-INF/services/org.apache.flink.*</include>
@@ -172,10 +177,6 @@ under the License.
 								<relocation>
 									<pattern>org.yaml</pattern>
 									<shadedPattern>org.apache.flink.kubernetes.shaded.org.yaml</shadedPattern>
-								</relocation>
-								<relocation>
-									<pattern>com.mifmif</pattern>
-									<shadedPattern>org.apache.flink.kubernetes.shaded.com.mifmif</shadedPattern>
 								</relocation>
 								<relocation>
 									<pattern>dk.brics.automaton</pattern>

@@ -25,11 +25,11 @@ import org.apache.flink.runtime.heartbeat.HeartbeatServices;
 import org.apache.flink.runtime.highavailability.HighAvailabilityServices;
 import org.apache.flink.runtime.io.network.partition.ResourceManagerPartitionTrackerImpl;
 import org.apache.flink.runtime.metrics.groups.ResourceManagerMetricGroup;
-import org.apache.flink.runtime.resourcemanager.ActiveResourceManagerFactory;
 import org.apache.flink.runtime.resourcemanager.ResourceManager;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerFactory;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerRuntimeServices;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerRuntimeServicesConfiguration;
+import org.apache.flink.runtime.resourcemanager.active.LegacyActiveResourceManagerFactory;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
 import org.apache.flink.runtime.rpc.RpcService;
 import org.apache.flink.util.ConfigurationException;
@@ -38,10 +38,12 @@ import org.apache.flink.yarn.YarnWorkerNode;
 
 import javax.annotation.Nullable;
 
+import java.util.concurrent.Executor;
+
 /**
  * {@link ResourceManagerFactory} implementation which creates a {@link YarnResourceManager}.
  */
-public class YarnResourceManagerFactory extends ActiveResourceManagerFactory<YarnWorkerNode> {
+public class YarnResourceManagerFactory extends LegacyActiveResourceManagerFactory<YarnWorkerNode> {
 
 	private static final YarnResourceManagerFactory INSTANCE = new YarnResourceManagerFactory();
 
@@ -62,7 +64,8 @@ public class YarnResourceManagerFactory extends ActiveResourceManagerFactory<Yar
 			ClusterInformation clusterInformation,
 			@Nullable String webInterfaceUrl,
 			ResourceManagerMetricGroup resourceManagerMetricGroup,
-			ResourceManagerRuntimeServices resourceManagerRuntimeServices) {
+			ResourceManagerRuntimeServices resourceManagerRuntimeServices,
+			Executor ioExecutor) {
 
 		return new YarnResourceManager(
 			rpcService,
@@ -77,7 +80,8 @@ public class YarnResourceManagerFactory extends ActiveResourceManagerFactory<Yar
 			clusterInformation,
 			fatalErrorHandler,
 			webInterfaceUrl,
-			resourceManagerMetricGroup);
+			resourceManagerMetricGroup,
+			ioExecutor);
 	}
 
 	@Override

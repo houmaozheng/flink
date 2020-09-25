@@ -31,13 +31,15 @@ import org.apache.flink.sql.parser.ddl.SqlDropDatabase;
 import org.apache.flink.sql.parser.ddl.SqlDropFunction;
 import org.apache.flink.sql.parser.ddl.SqlDropTable;
 import org.apache.flink.sql.parser.ddl.SqlDropView;
-import org.apache.flink.sql.parser.ddl.SqlTableColumn;
+import org.apache.flink.sql.parser.ddl.SqlTableColumn.SqlRegularColumn;
 import org.apache.flink.sql.parser.ddl.SqlTableOption;
 import org.apache.flink.sql.parser.ddl.SqlUseCatalog;
 import org.apache.flink.sql.parser.ddl.SqlUseDatabase;
 import org.apache.flink.sql.parser.dml.RichSqlInsert;
 import org.apache.flink.sql.parser.dql.SqlRichDescribeTable;
 import org.apache.flink.sql.parser.dql.SqlShowCatalogs;
+import org.apache.flink.sql.parser.dql.SqlShowCurrentCatalog;
+import org.apache.flink.sql.parser.dql.SqlShowCurrentDatabase;
 import org.apache.flink.sql.parser.dql.SqlShowDatabases;
 import org.apache.flink.sql.parser.dql.SqlShowFunctions;
 import org.apache.flink.sql.parser.dql.SqlShowTables;
@@ -67,6 +69,8 @@ import org.apache.flink.table.operations.ExplainOperation;
 import org.apache.flink.table.operations.Operation;
 import org.apache.flink.table.operations.PlannerQueryOperation;
 import org.apache.flink.table.operations.ShowCatalogsOperation;
+import org.apache.flink.table.operations.ShowCurrentCatalogOperation;
+import org.apache.flink.table.operations.ShowCurrentDatabaseOperation;
 import org.apache.flink.table.operations.ShowDatabasesOperation;
 import org.apache.flink.table.operations.ShowFunctionsOperation;
 import org.apache.flink.table.operations.ShowTablesOperation;
@@ -181,8 +185,12 @@ public class SqlToOperationConverter {
 			return Optional.of(converter.convertAlterDatabase((SqlAlterDatabase) validated));
 		} else if (validated instanceof SqlShowCatalogs) {
 			return Optional.of(converter.convertShowCatalogs((SqlShowCatalogs) validated));
+		} else if (validated instanceof SqlShowCurrentCatalog) {
+			return Optional.of(converter.convertShowCurrentCatalog((SqlShowCurrentCatalog) validated));
 		} else if (validated instanceof SqlShowDatabases) {
 			return Optional.of(converter.convertShowDatabases((SqlShowDatabases) validated));
+		} else if (validated instanceof SqlShowCurrentDatabase) {
+			return Optional.of(converter.convertShowCurrentDatabase((SqlShowCurrentDatabase) validated));
 		} else if (validated instanceof SqlShowTables) {
 			return Optional.of(converter.convertShowTables((SqlShowTables) validated));
 		} else if (validated instanceof SqlShowFunctions) {
@@ -491,9 +499,19 @@ public class SqlToOperationConverter {
 		return new ShowCatalogsOperation();
 	}
 
+	/** Convert SHOW CURRENT CATALOG statement. */
+	private Operation convertShowCurrentCatalog(SqlShowCurrentCatalog sqlShowCurrentCatalog) {
+		return new ShowCurrentCatalogOperation();
+	}
+
 	/** Convert SHOW DATABASES statement. */
 	private Operation convertShowDatabases(SqlShowDatabases sqlShowDatabases) {
 		return new ShowDatabasesOperation();
+	}
+
+	/** Convert SHOW CURRENT DATABASE statement. */
+	private Operation convertShowCurrentDatabase(SqlShowCurrentDatabase sqlShowCurrentDatabase) {
+		return new ShowCurrentDatabaseOperation();
 	}
 
 	/** Convert SHOW TABLES statement. */
@@ -610,22 +628,23 @@ public class SqlToOperationConverter {
 		SqlNodeList columnList = sqlCreateTable.getColumnList();
 		TableSchema physicalSchema = null;
 		TableSchema.Builder builder = new TableSchema.Builder();
-		// collect the physical table schema first.
-		final List<SqlNode> physicalColumns = columnList.getList().stream()
-			.filter(n -> n instanceof SqlTableColumn).collect(Collectors.toList());
-		for (SqlNode node : physicalColumns) {
-			SqlTableColumn column = (SqlTableColumn) node;
-			final RelDataType relType = column.getType()
+		// collect the regular, physical table schema first.
+		final List<SqlRegularColumn> physicalColumns = columnList.getList().stream()
+			.filter(SqlRegularColumn.class::isInstance)
+			.map(SqlRegularColumn.class::cast)
+			.collect(Collectors.toList());
+		for (SqlRegularColumn regularColumn : physicalColumns) {
+			final RelDataType relType = regularColumn.getType()
 				.deriveType(
 					flinkPlanner.getOrCreateSqlValidator(),
-					column.getType().getNullable());
-			builder.field(column.getName().getSimple(),
+					regularColumn.getType().getNullable());
+			builder.field(regularColumn.getName().getSimple(),
 				TypeConversions.fromLegacyInfoToDataType(FlinkTypeFactory.toTypeInfo(relType)));
 			physicalSchema = builder.build();
 		}
 		assert physicalSchema != null;
-		if (sqlCreateTable.containsComputedColumn()) {
-			throw new SqlConversionException("Computed columns for DDL is not supported yet!");
+		if (!sqlCreateTable.hasRegularColumnsOnly()) {
+			throw new SqlConversionException("Only regular columns are supported in DDL.");
 		}
 		return physicalSchema;
 	}

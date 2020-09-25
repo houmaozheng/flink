@@ -30,7 +30,7 @@ under the License.
 	</parent>
 
 	<artifactId>flink-dist_${scala.binary.version}</artifactId>
-	<name>flink-dist</name>
+	<name>Flink : Dist</name>
 	<packaging>jar</packaging>
 
 	<properties>
@@ -135,6 +135,19 @@ under the License.
 					<artifactId>*</artifactId>
 				</exclusion>
 			</exclusions>
+		</dependency>
+
+		<!-- Base Connector Support -->
+		<dependency>
+			<groupId>org.apache.flink</groupId>
+			<artifactId>flink-connector-base</artifactId>
+			<version>${project.version}</version>
+		</dependency>
+
+		<dependency>
+			<groupId>org.apache.flink</groupId>
+			<artifactId>flink-connector-files</artifactId>
+			<version>${project.version}</version>
 		</dependency>
 
 		<!-- Default file system support. The Hadoop and MapR dependencies -->

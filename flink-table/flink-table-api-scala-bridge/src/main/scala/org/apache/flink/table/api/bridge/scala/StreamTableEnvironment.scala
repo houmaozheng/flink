@@ -53,7 +53,14 @@ trait StreamTableEnvironment extends TableEnvironment {
     *
     * @param name The name under which the function is registered.
     * @param tf The TableFunction to register
+    *
+    * @deprecated Use [[createTemporarySystemFunction(String, UserDefinedFunction)]] instead. Please
+    *             note that the new method also uses the new type system and reflective extraction
+    *             logic. It might be necessary to update the function implementation as well. See
+    *             the documentation of [[TableFunction]] for more information on the new function
+    *             design.
     */
+  @deprecated
   def registerFunction[T: TypeInformation](name: String, tf: TableFunction[T]): Unit
 
   /**
@@ -64,7 +71,14 @@ trait StreamTableEnvironment extends TableEnvironment {
     * @param f The AggregateFunction to register.
     * @tparam T The type of the output value.
     * @tparam ACC The type of aggregate accumulator.
+    *
+    * @deprecated Use [[createTemporarySystemFunction(String, UserDefinedFunction)]] instead. Please
+    *             note that the new method also uses the new type system and reflective extraction
+    *             logic. It might be necessary to update the function implementation as well. See
+    *             the documentation of [[AggregateFunction]] for more information on the new
+    *             function design.
     */
+  @deprecated
   def registerFunction[T: TypeInformation, ACC: TypeInformation](
     name: String,
     f: AggregateFunction[T, ACC]): Unit
@@ -77,7 +91,14 @@ trait StreamTableEnvironment extends TableEnvironment {
     * @param f The TableAggregateFunction to register.
     * @tparam T The type of the output value.
     * @tparam ACC The type of aggregate accumulator.
+    *
+    * @deprecated Use [[createTemporarySystemFunction(String, UserDefinedFunction)]] instead. Please
+    *             note that the new method also uses the new type system and reflective extraction
+    *             logic. It might be necessary to update the function implementation as well. See
+    *             the documentation of [[TableAggregateFunction]] for more information on the new
+    *             function design.
     */
+  @deprecated
   def registerFunction[T: TypeInformation, ACC: TypeInformation](
     name: String,
     f: TableAggregateFunction[T, ACC]): Unit
@@ -359,47 +380,51 @@ trait StreamTableEnvironment extends TableEnvironment {
   override def execute(jobName: String): JobExecutionResult
 
   /**
-    * Creates a table source and/or table sink from a descriptor.
-    *
-    * Descriptors allow for declaring the communication to external systems in an
-    * implementation-agnostic way. The classpath is scanned for suitable table factories that match
-    * the desired configuration.
-    *
-    * The following example shows how to read from a Kafka connector using a JSON format and
-    * registering a table source "MyTable" in append mode:
-    *
-    * {{{
-    *
-    * tableEnv
-    *   .connect(
-    *     new Kafka()
-    *       .version("0.11")
-    *       .topic("clicks")
-    *       .property("group.id", "click-group")
-    *       .startFromEarliest())
-    *   .withFormat(
-    *     new Json()
-    *       .jsonSchema("{...}")
-    *       .failOnMissingField(false))
-    *   .withSchema(
-    *     new Schema()
-    *       .field("user-name", "VARCHAR").from("u_name")
-    *       .field("count", "DECIMAL")
-    *       .field("proc-time", "TIMESTAMP").proctime())
-    *   .inAppendMode()
-    *   .createTemporaryTable("MyTable")
-    * }}}
-    *
-    * @param connectorDescriptor connector descriptor describing the external system
-    */
+   * Creates a table source and/or table sink from a descriptor.
+   *
+   * Descriptors allow for declaring the communication to external systems in an
+   * implementation-agnostic way. The classpath is scanned for suitable table factories that match
+   * the desired configuration.
+   *
+   * The following example shows how to read from a Kafka connector using a JSON format and
+   * registering a table source "MyTable" in append mode:
+   *
+   * {{{
+   *
+   * tableEnv
+   *   .connect(
+   *     new Kafka()
+   *       .version("0.11")
+   *       .topic("clicks")
+   *       .property("group.id", "click-group")
+   *       .startFromEarliest())
+   *   .withFormat(
+   *     new Json()
+   *       .jsonSchema("{...}")
+   *       .failOnMissingField(false))
+   *   .withSchema(
+   *     new Schema()
+   *       .field("user-name", "VARCHAR").from("u_name")
+   *       .field("count", "DECIMAL")
+   *       .field("proc-time", "TIMESTAMP").proctime())
+   *   .inAppendMode()
+   *   .createTemporaryTable("MyTable")
+   * }}}
+   *
+   * @param connectorDescriptor connector descriptor describing the external system
+   * @deprecated The SQL `CREATE TABLE` DDL is richer than this part of the API.
+   *             This method might be refactored in the next versions.
+   *             Please use [[executeSql]] to register a table instead.
+   */
+  @deprecated
   override def connect(connectorDescriptor: ConnectorDescriptor): StreamTableDescriptor
 }
 
 object StreamTableEnvironment {
 
   /**
-    * Creates a table environment that is the entry point and central context for creating Table and
-    * SQL API programs that integrate with the Scala-specific [[DataStream]] API.
+    * Creates a table environment that is the entry point and central context for creating Table
+    * and SQL API programs that integrate with the Scala-specific [[DataStream]] API.
     *
     * It is unified for bounded and unbounded data processing.
     *

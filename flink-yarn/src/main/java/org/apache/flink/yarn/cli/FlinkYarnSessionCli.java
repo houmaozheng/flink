@@ -18,7 +18,6 @@
 
 package org.apache.flink.yarn.cli;
 
-import org.apache.flink.client.cli.AbstractCustomCommandLine;
 import org.apache.flink.client.cli.CliArgsException;
 import org.apache.flink.client.cli.CliFrontend;
 import org.apache.flink.client.deployment.ClusterClientFactory;
@@ -39,6 +38,7 @@ import org.apache.flink.runtime.clusterframework.ApplicationStatus;
 import org.apache.flink.runtime.concurrent.ScheduledExecutorServiceAdapter;
 import org.apache.flink.runtime.security.SecurityConfiguration;
 import org.apache.flink.runtime.security.SecurityUtils;
+import org.apache.flink.util.ConfigurationException;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.ExecutorUtils;
 import org.apache.flink.util.FlinkException;
@@ -91,16 +91,12 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 /**
  * Class handling the command line interface to the YARN session.
  */
-public class FlinkYarnSessionCli extends AbstractCustomCommandLine {
+public class FlinkYarnSessionCli extends AbstractYarnCli {
 	private static final Logger LOG = LoggerFactory.getLogger(FlinkYarnSessionCli.class);
 
 	//------------------------------------ Constants   -------------------------
 
 	private static final long CLIENT_POLLING_INTERVAL_MS = 3000L;
-
-	/** The id for the CommandLine interface. */
-	private static final String ID = "yarn-cluster";
-
 	// YARN-session related constants
 	private static final String YARN_PROPERTIES_FILE = ".yarn-properties-";
 	private static final String YARN_APPLICATION_ID_KEY = "applicationID";
@@ -115,8 +111,6 @@ public class FlinkYarnSessionCli extends AbstractCustomCommandLine {
 	//------------------------------------ Command Line argument options -------------------------
 	// the prefix transformation is used by the CliFrontend static constructor.
 	private final Option query;
-	// --- or ---
-	private final Option applicationId;
 	// --- or ---
 	private final Option queue;
 	private final Option shipPath;
@@ -185,7 +179,6 @@ public class FlinkYarnSessionCli extends AbstractCustomCommandLine {
 		// Create the command line options
 
 		query = new Option(shortPrefix + "q", longPrefix + "query", false, "Display available YARN resources (memory, cores)");
-		applicationId = new Option(shortPrefix + "id", longPrefix + "applicationId", true, "Attach to running YARN session");
 		queue = new Option(shortPrefix + "qu", longPrefix + "queue", true, "Specify YARN queue.");
 		shipPath = new Option(shortPrefix + "t", longPrefix + "ship", true, "Ship files in the specified directory (t for transfer)");
 		flinkJar = new Option(shortPrefix + "j", longPrefix + "jar", true, "Path to Flink jar file");
@@ -272,40 +265,34 @@ public class FlinkYarnSessionCli extends AbstractCustomCommandLine {
 		return new Path(userPath);
 	}
 
-	private void encodeDirsToShipToCluster(final Configuration configuration, final CommandLine cmd) {
+	private void encodeFilesToShipToCluster(final Configuration configuration, final CommandLine cmd) throws ConfigurationException {
 		checkNotNull(cmd);
 		checkNotNull(configuration);
 
 		if (cmd.hasOption(shipPath.getOpt())) {
+			String[] shipFiles = cmd.getOptionValues(this.shipPath.getOpt());
+
+			for (String path : shipFiles) {
+				final File shipFile = new File(path);
+				if (!shipFile.exists()) {
+					throw new ConfigurationException("Ship file " + path + " does not exist");
+				}
+			}
+
 			ConfigUtils.encodeArrayToConfig(
 					configuration,
-					YarnConfigOptions.SHIP_DIRECTORIES,
-					cmd.getOptionValues(this.shipPath.getOpt()),
-					(String path) -> {
-						final File shipDir = new File(path);
-						if (shipDir.isDirectory()) {
-							return path;
-						}
-						LOG.warn("Ship directory {} is not a directory. Ignoring it.", shipDir.getAbsolutePath());
-						return null;
-					});
+					YarnConfigOptions.SHIP_FILES,
+					shipFiles,
+					f -> f);
 		}
 	}
 
 	@Override
 	public boolean isActive(CommandLine commandLine) {
-		final String jobManagerOption = commandLine.getOptionValue(addressOption.getOpt(), null);
-		final boolean yarnJobManager = ID.equals(jobManagerOption);
-		final boolean hasYarnAppId = commandLine.hasOption(applicationId.getOpt())
-				|| configuration.getOptional(YarnConfigOptions.APPLICATION_ID).isPresent();
-		final boolean hasYarnExecutor = YarnSessionClusterExecutor.NAME.equalsIgnoreCase(configuration.get(DeploymentOptions.TARGET))
-				|| YarnJobClusterExecutor.NAME.equalsIgnoreCase(configuration.get(DeploymentOptions.TARGET));
-		return hasYarnExecutor || yarnJobManager || hasYarnAppId || (isYarnPropertiesFileMode(commandLine) && yarnApplicationIdFromYarnProperties != null);
-	}
-
-	@Override
-	public String getId() {
-		return ID;
+		if (!super.isActive(commandLine)) {
+			return (isYarnPropertiesFileMode(commandLine) && yarnApplicationIdFromYarnProperties != null);
+		}
+		return true;
 	}
 
 	@Override
@@ -315,12 +302,6 @@ public class FlinkYarnSessionCli extends AbstractCustomCommandLine {
 		for (Object option : allOptions.getOptions()) {
 			baseOptions.addOption((Option) option);
 		}
-	}
-
-	@Override
-	public void addGeneralOptions(Options baseOptions) {
-		super.addGeneralOptions(baseOptions);
-		baseOptions.addOption(applicationId);
 	}
 
 	@Override
@@ -392,7 +373,7 @@ public class FlinkYarnSessionCli extends AbstractCustomCommandLine {
 		return null;
 	}
 
-	private void applyDescriptorOptionToConfig(final CommandLine commandLine, final Configuration configuration) {
+	private void applyDescriptorOptionToConfig(final CommandLine commandLine, final Configuration configuration) throws ConfigurationException {
 		checkNotNull(commandLine);
 		checkNotNull(configuration);
 
@@ -401,7 +382,7 @@ public class FlinkYarnSessionCli extends AbstractCustomCommandLine {
 			configuration.setString(YarnConfigOptions.FLINK_DIST_JAR, localJarPath.toString());
 		}
 
-		encodeDirsToShipToCluster(configuration, commandLine);
+		encodeFilesToShipToCluster(configuration, commandLine);
 
 		if (commandLine.hasOption(queue.getOpt())) {
 			final String queueName = commandLine.getOptionValue(queue.getOpt());

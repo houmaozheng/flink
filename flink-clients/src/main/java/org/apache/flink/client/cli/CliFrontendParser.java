@@ -56,14 +56,6 @@ public class CliFrontendParser {
 	public static final Option PARALLELISM_OPTION = new Option("p", "parallelism", true,
 			"The parallelism with which to run the program. Optional flag to override the default value " +
 			"specified in the configuration.");
-
-	/**
-	 * @deprecated This has no effect anymore, we're keeping it to not break existing bash scripts.
-	 */
-	@Deprecated
-	static final Option LOGGING_OPTION = new Option("q", "sysoutLogging", false, "If present, " +
-			"suppress logging output to standard out.");
-
 	public static final Option DETACHED_OPTION = new Option("d", "detached", false, "If present, runs " +
 			"the job in detached mode");
 
@@ -83,7 +75,7 @@ public class CliFrontendParser {
 			"Program arguments. Arguments can also be added without -a, simply as trailing parameters.");
 
 	public static final Option ADDRESS_OPTION = new Option("m", "jobmanager", true,
-			"Address of the JobManager (master) to which to connect. " +
+			"Address of the JobManager to which to connect. " +
 			"Use this flag to connect to a different JobManager than the one specified in the configuration.");
 
 	public static final Option SAVEPOINT_PATH_OPTION = new Option("s", "fromSavepoint", true,
@@ -162,7 +154,7 @@ public class CliFrontendParser {
 	public static final Option PYEXEC_OPTION = new Option("pyexec", "pyExecutable", true,
 		"Specify the path of the python interpreter used to execute the python UDF worker " +
 			"(e.g.: --pyExecutable /usr/local/bin/python3). " +
-			"The python UDF worker depends on Python 3.5+, Apache Beam (version == 2.19.0), " +
+			"The python UDF worker depends on Python 3.5+, Apache Beam (version == 2.23.0), " +
 			"Pip (version >= 7.1.0) and SetupTools (version >= 37.0.0). " +
 			"Please ensure that the specified environment meets the above requirements.");
 
@@ -184,7 +176,6 @@ public class CliFrontendParser {
 		PARALLELISM_OPTION.setRequired(false);
 		PARALLELISM_OPTION.setArgName("parallelism");
 
-		LOGGING_OPTION.setRequired(false);
 		DETACHED_OPTION.setRequired(false);
 		SHUTDOWN_IF_ATTACHED_OPTION.setRequired(false);
 		YARN_DETACHED_OPTION.setRequired(false);
@@ -245,7 +236,6 @@ public class CliFrontendParser {
 		options.addOption(CLASSPATH_OPTION);
 		options.addOption(PARALLELISM_OPTION);
 		options.addOption(ARGS_OPTION);
-		options.addOption(LOGGING_OPTION);
 		options.addOption(DETACHED_OPTION);
 		options.addOption(SHUTDOWN_IF_ATTACHED_OPTION);
 		options.addOption(YARN_DETACHED_OPTION);

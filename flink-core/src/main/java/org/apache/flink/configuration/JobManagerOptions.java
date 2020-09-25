@@ -169,9 +169,30 @@ public class JobManagerOptions {
 		key("jobmanager.memory.off-heap.size")
 			.memoryType()
 			.defaultValue(MemorySize.ofMebiBytes(128))
-			.withDescription("Off-heap Memory size for JobManager. The JVM direct memory limit of the Job Manager " +
-				"process (-XX:MaxDirectMemorySize) will be set to this value. This option covers all off-heap memory " +
-				"usage including direct and native memory allocation.");
+			.withDescription(Description
+				.builder()
+				.text(
+					"Off-heap Memory size for JobManager. This option covers all off-heap memory usage including " +
+						"direct and native memory allocation. The JVM direct memory limit of the JobManager process " +
+						"(-XX:MaxDirectMemorySize) will be set to this value if the limit is enabled by " +
+						"'jobmanager.memory.enable-jvm-direct-memory-limit'. ")
+				.build());
+
+	/**
+	 * Off-heap Memory size for the JobManager.
+	 */
+	@Documentation.Section(Documentation.Sections.COMMON_MEMORY)
+	public static final ConfigOption<Boolean> JVM_DIRECT_MEMORY_LIMIT_ENABLED =
+		key("jobmanager.memory.enable-jvm-direct-memory-limit")
+			.booleanType()
+			.defaultValue(false)
+			.withDescription(Description
+				.builder()
+				.text(
+					"Whether to enable the JVM direct memory limit of the JobManager process " +
+						"(-XX:MaxDirectMemorySize). The limit will be set to the value of '%s' option. ",
+					text(OFF_HEAP_MEMORY.key()))
+				.build());
 
 	/**
 	 * JVM Metaspace Size for the JobManager.
@@ -305,6 +326,7 @@ public class JobManagerOptions {
 			// default matches heartbeat.timeout so that sticky allocation is not lost on timeouts for local recovery
 			.defaultValue(HeartbeatManagerOptions.HEARTBEAT_TIMEOUT.defaultValue())
 			.withDescription("The timeout in milliseconds for a idle slot in Slot Pool.");
+
 	/**
 	 * Config parameter determining the scheduler implementation.
 	 */
@@ -318,6 +340,23 @@ public class JobManagerOptions {
 				.list(
 					text("'ng': new generation scheduler"))
 				.build());
+
+	/**
+	 * Config parameter determining the scheduling strategy.
+	 */
+	@Documentation.ExcludeFromDocumentation("User normally should not be expected to change this config.")
+	public static final ConfigOption<String> SCHEDULING_STRATEGY =
+		key("jobmanager.scheduler.scheduling-strategy")
+			.stringType()
+			.defaultValue("region")
+			.withDescription(Description.builder()
+				.text("Determines which scheduling strategy is used to schedule tasks. Accepted values are:")
+				.list(
+					text("'region': pipelined region scheduling"),
+					text("'legacy': legacy scheduling strategy, which is eager scheduling for streaming jobs " +
+						"and lazy from sources scheduling for batch jobs"))
+				.build());
+
 	/**
 	 * Config parameter controlling whether partitions should already be released during the job execution.
 	 */

@@ -31,7 +31,7 @@ under the License.
 	</parent>
 
 	<artifactId>flink-elasticsearch6-test</artifactId>
-	<name>flink-elasticsearch6-test</name>
+	<name>Flink : E2E Tests : Elasticsearch 6</name>
 	<packaging>jar</packaging>
 
 	<dependencies>
@@ -47,6 +47,17 @@ under the License.
 			<version>${project.version}</version>
 		</dependency>
 	</dependencies>
+
+	<dependencyManagement>
+		<dependencies>
+			<dependency>
+				<!-- Bumped for dependency convergence -->
+				<groupId>org.yaml</groupId>
+				<artifactId>snakeyaml</artifactId>
+				<version>1.27</version>
+			</dependency>
+		</dependencies>
+	</dependencyManagement>
 
 	<build>
 		<plugins>

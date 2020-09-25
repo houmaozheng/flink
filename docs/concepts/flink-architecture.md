@@ -40,28 +40,28 @@ main components interact to execute applications and recover from failures.
 
 ## Anatomy of a Flink Cluster
 
-The Flink runtime consists of two types of processes: a _Flink Master_ and one or more _Flink Workers_.
+The Flink runtime consists of two types of processes: a _JobManager_ and one or more _TaskManagers_.
 
 <img src="{{ site.baseurl }}/fig/processes.svg" alt="The processes involved in executing a Flink dataflow" class="offset" width="70%" />
 
 The *Client* is not part of the runtime and program execution, but is used to
-prepare and send a dataflow to the Flink Master.  After that, the client can
+prepare and send a dataflow to the JobManager.  After that, the client can
 disconnect (_detached mode_), or stay connected to receive progress reports
 (_attached mode_). The client runs either as part of the Java/Scala program
 that triggers the execution, or in the command line process `./bin/flink run
 ...`.
 
-The Flink Master and TaskManagers can be started in various ways: directly on
+The JobManager and TaskManagers can be started in various ways: directly on
 the machines as a [standalone cluster]({% link
 ops/deployment/cluster_setup.md %}), in containers, or managed by resource
 frameworks like [YARN]({% link ops/deployment/yarn_setup.md
 %}) or [Mesos]({% link ops/deployment/mesos.md %}).
-TaskManagers connect to Flink Masters, announcing themselves as available, and
+TaskManagers connect to JobManagers, announcing themselves as available, and
 are assigned work.
 
-### Flink Master
+### JobManager
 
-The _Flink Master_ has a number of responsibilities related to coordinating the distributed execution of Flink Applications:
+The _JobManager_ has a number of responsibilities related to coordinating the distributed execution of Flink Applications:
 it decides when to schedule the next task (or set of tasks), reacts to finished
 tasks or execution failures, coordinates checkpoints, and coordinates recovery on
 failures, among others. This process consists of three different components:
@@ -70,7 +70,7 @@ failures, among others. This process consists of three different components:
 
     The _ResourceManager_ is responsible for resource de-/allocation and
     provisioning in a Flink cluster — it manages **task slots**, which are the
-    unit of resource scheduling in a Flink cluster (see [Flink Workers](#flink-workers)).
+    unit of resource scheduling in a Flink cluster (see [TaskManagers](#taskmanagers)).
     Flink implements multiple ResourceManagers for different environments and
     resource providers such as YARN, Mesos, Kubernetes and standalone
     deployments. In a standalone setup, the ResourceManager can only distribute
@@ -80,21 +80,21 @@ failures, among others. This process consists of three different components:
   * **Dispatcher** 
 
     The _Dispatcher_ provides a REST interface to submit Flink applications for
-    execution and starts a new JobManager for each submitted job. It
+    execution and starts a new JobMaster for each submitted job. It
     also runs the Flink WebUI to provide information about job executions.
 
-  * **JobManager** 
+  * **JobMaster** 
 
-    A _JobManager_ is responsible for managing the execution of a single
+    A _JobMaster_ is responsible for managing the execution of a single
     [JobGraph]({% link concepts/glossary.md %}#logical-graph).
     Multiple jobs can run simultaneously in a Flink cluster, each having its
-    own JobManager.
+    own JobMaster.
 
-There is always at least one Flink Master. A high-availability setup might have
-multiple Flink Masters, one of which is always the *leader*, and the others are
+There is always at least one JobManager. A high-availability setup might have
+multiple JobManagers, one of which is always the *leader*, and the others are
 *standby* (see [High Availability (HA)]({% link ops/jobmanager_high_availability.md %})).
 
-### Flink Workers
+### TaskManagers
 
 The *TaskManagers* (also called *workers*) execute the tasks of a dataflow, and buffer and exchange the data
 streams.
@@ -125,8 +125,8 @@ hence with five parallel threads.
 ## Task Slots and Resources
 
 Each worker (TaskManager) is a *JVM process*, and may execute one or more
-subtasks in separate threads.  To control how many tasks a worker accepts, a
-worker has so called **task slots** (at least one).
+subtasks in separate threads.  To control how many tasks a TaskManager accepts, it
+has so called **task slots** (at least one).
 
 Each *task slot* represents a fixed subset of resources of the TaskManager. A
 TaskManager with three slots, for example, will dedicate 1/3 of its managed
@@ -187,7 +187,7 @@ isolation guarantees.
 
 * **Cluster Lifecycle**: in a Flink Session Cluster, the client connects to a
   pre-existing, long-running cluster that can accept multiple job submissions.
-  Even after all jobs are finished, the cluster (and the Flink Master) will
+  Even after all jobs are finished, the cluster (and the JobManager) will
   keep running until the session is manually stopped. The lifetime of a Flink
   Session Cluster is therefore not bound to the lifetime of any Flink Job.
 
@@ -196,8 +196,8 @@ isolation guarantees.
   Because all jobs are sharing the same cluster, there is some competition for
   cluster resources — like network bandwidth in the submit-job phase. One
   limitation of this shared setup is that if one TaskManager crashes, then all
-  jobs that have tasks running on this worker will fail; in a similar way, if
-  some fatal error occurs on the Flink Master, it will affect all jobs running
+  jobs that have tasks running on this TaskManager will fail; in a similar way, if
+  some fatal error occurs on the JobManager, it will affect all jobs running
   in the cluster.
 
 * **Other considerations**: having a pre-existing cluster saves a considerable
@@ -214,12 +214,12 @@ isolation guarantees.
 * **Cluster Lifecycle**: in a Flink Job Cluster, the available cluster manager
   (like YARN or Kubernetes) is used to spin up a cluster for each submitted job
   and this cluster is available to that job only. Here, the client first
-  requests resources from the cluster manager to start the Flink Master and
+  requests resources from the cluster manager to start the JobManager and
   submits the job to the Dispatcher running inside this process. TaskManagers
   are then lazily allocated based on the resource requirements of the job. Once
   the job is finished, the Flink Job Cluster is torn down.
 
-* **Resource Isolation**: a fatal error in the Flink Master only affects the one job running in that Flink Job Cluster.
+* **Resource Isolation**: a fatal error in the JobManager only affects the one job running in that Flink Job Cluster.
 
 * **Other considerations**: because the ResourceManager has to apply and wait
   for external resource management components to start the TaskManager
@@ -248,20 +248,5 @@ isolation guarantees.
   better separation of concerns than the Flink Session Cluster.
 
 <div class="alert alert-info"> <strong>Note:</strong> A Flink Job Cluster can be seen as a “run-on-client” alternative to Flink Application Clusters. </div>
-
-{% top %}
-
-## Self-contained Flink Applications
-
-When you want to create and deploy something like an event-driven application, it doesn’t make
-sense that you have to think about and manage a cluster. So, there are efforts
-in the community towards fully enabling _Flink-as-a-Library_ in the future.
-
-The idea is that deploying a Flink Application becomes as easy as starting a
-process: Flink would be like any other library which you add to your application, with no effect on how you deploy it. When you want to deploy such an
-application, it simply starts a set of processes which connect to each other,
-figure out their roles (e.g. JobManager, TaskManager) and execute the
-application in a distributed, parallel way. If the application cannot keep up
-with the workload, Flink automatically starts new processes to rescale (i.e. auto-scaling).
 
 {% top %}

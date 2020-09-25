@@ -144,7 +144,7 @@ public class NettyShuffleEnvironmentBuilder {
 		return NettyShuffleServiceFactory.createNettyShuffleEnvironment(
 			new NettyShuffleEnvironmentConfiguration(
 				numNetworkBuffers,
-				DEFAULT_NETWORK_BUFFER_SIZE,
+				bufferSize,
 				partitionRequestInitialBackoff,
 				partitionRequestMaxBackoff,
 				networkBuffersPerChannel,
@@ -154,7 +154,6 @@ public class NettyShuffleEnvironmentBuilder {
 				nettyConfig,
 				DEFAULT_TEMP_DIRS,
 				BoundedBlockingSubpartitionType.AUTO,
-				false,
 				blockingShuffleCompressionEnabled,
 				compressionCodec,
 				maxBuffersPerChannel),

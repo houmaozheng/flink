@@ -34,6 +34,10 @@ This page lists all the supported statements supported in Flink SQL for now:
 - [ALTER TABLE, DATABASE, FUNCTION](alter.html)
 - [INSERT](insert.html)
 - [SQL HINTS](hints.html)
+- [DESCRIBE](describe.html)
+- [EXPLAIN](explain.html)
+- [USE](use.html)
+- [SHOW](show.html)
 
 ## Data Types
 

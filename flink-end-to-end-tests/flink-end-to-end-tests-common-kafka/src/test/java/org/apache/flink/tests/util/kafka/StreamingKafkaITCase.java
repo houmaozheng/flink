@@ -58,8 +58,6 @@ public class StreamingKafkaITCase extends TestLogger {
 	@Parameterized.Parameters(name = "{index}: kafka-version:{1}")
 	public static Collection<Object[]> data() {
 		return Arrays.asList(new Object[][]{
-			{"flink-streaming-kafka010-test.*", "0.10.2.2"},
-			{"flink-streaming-kafka011-test.*", "0.11.0.2"},
 			{"flink-streaming-kafka-test.*", "2.4.1"}
 		});
 	}
@@ -82,7 +80,7 @@ public class StreamingKafkaITCase extends TestLogger {
 	}
 
 	public StreamingKafkaITCase(final String kafkaExampleJarPattern, final String kafkaVersion) {
-		this.kafkaExampleJar = TestUtils.getResourceJar(kafkaExampleJarPattern);
+		this.kafkaExampleJar = TestUtils.getResource(kafkaExampleJarPattern);
 		this.kafka = KafkaResource.get(kafkaVersion);
 		this.kafkaVersion = kafkaVersion;
 	}

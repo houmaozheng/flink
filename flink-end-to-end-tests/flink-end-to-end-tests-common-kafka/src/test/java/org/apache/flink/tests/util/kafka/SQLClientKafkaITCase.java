@@ -76,8 +76,6 @@ public class SQLClientKafkaITCase extends TestLogger {
 	@Parameterized.Parameters(name = "{index}: kafka-version:{0} kafka-sql-version:{1}")
 	public static Collection<Object[]> data() {
 		return Arrays.asList(new Object[][]{
-				{"0.10.2.2", "0.10", "kafka-0.10", ".*kafka-0.10.jar"},
-				{"0.11.0.2", "0.11", "kafka-0.11", ".*kafka-0.11.jar"},
 				{"2.4.1", "universal", "kafka", ".*kafka.jar"}
 		});
 	}
@@ -107,8 +105,8 @@ public class SQLClientKafkaITCase extends TestLogger {
 	@ClassRule
 	public static final DownloadCache DOWNLOAD_CACHE = DownloadCache.get();
 
-	private static final Path sqlAvroJar = TestUtils.getResourceJar(".*avro.jar");
-	private static final Path sqlToolBoxJar = TestUtils.getResourceJar(".*SqlToolbox.jar");
+	private static final Path sqlAvroJar = TestUtils.getResource(".*avro.jar");
+	private static final Path sqlToolBoxJar = TestUtils.getResource(".*SqlToolbox.jar");
 	private final List<Path> apacheAvroJars = new ArrayList<>();
 	private final Path sqlConnectorKafkaJar;
 
@@ -118,7 +116,7 @@ public class SQLClientKafkaITCase extends TestLogger {
 		this.kafkaSQLVersion = kafkaSQLVersion;
 		this.kafkaIdentifier = kafkaIdentifier;
 
-		this.sqlConnectorKafkaJar = TestUtils.getResourceJar(kafkaSQLJarPattern);
+		this.sqlConnectorKafkaJar = TestUtils.getResource(kafkaSQLJarPattern);
 	}
 
 	@Before
@@ -127,10 +125,6 @@ public class SQLClientKafkaITCase extends TestLogger {
 		Path tmpPath = tmp.getRoot().toPath();
 		LOG.info("The current temporary path: {}", tmpPath);
 		this.result = tmpPath.resolve("result");
-
-		apacheAvroJars.add(DOWNLOAD_CACHE.getOrDownload("https://repo1.maven.org/maven2/org/apache/avro/avro/1.8.2/avro-1.8.2.jar", tmpPath));
-		apacheAvroJars.add(DOWNLOAD_CACHE.getOrDownload("https://repo1.maven.org/maven2/org/codehaus/jackson/jackson-core-asl/1.9.13/jackson-core-asl-1.9.13.jar", tmpPath));
-		apacheAvroJars.add(DOWNLOAD_CACHE.getOrDownload("https://repo1.maven.org/maven2/org/codehaus/jackson/jackson-mapper-asl/1.9.13/jackson-mapper-asl-1.9.13.jar", tmpPath));
 	}
 
 	@Test
@@ -155,7 +149,7 @@ public class SQLClientKafkaITCase extends TestLogger {
 			// Create topic test-avro
 			kafka.createTopic(1, 1, testAvroTopic);
 
-			// Initialize the SQL client session configuration file
+			// Initialize the SQL statements from "kafka_e2e.sql" file
 			Map<String, String> varsMap = new HashMap<>();
 			varsMap.put("$KAFKA_IDENTIFIER", this.kafkaIdentifier);
 			varsMap.put("$TOPIC_JSON_NAME", testJsonTopic);
@@ -164,7 +158,7 @@ public class SQLClientKafkaITCase extends TestLogger {
 			varsMap.put("$KAFKA_BOOTSTRAP_SERVERS", StringUtils.join(kafka.getBootstrapServerAddresses().toArray(), ","));
 			List<String> sqlLines = initializeSqlLines(varsMap);
 
-			// execute sql statements in "kafka_e2e.sql" file
+			// Execute SQL statements in "kafka_e2e.sql" file
 			executeSqlStatements(clusterController, sqlLines);
 
 			// Wait until all the results flushed to the CSV file.
